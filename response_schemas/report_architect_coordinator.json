@@ -1,0 +1,251 @@
+{
+  "properties": {
+    "cannot_prove": {
+      "type": "string"
+    },
+    "change_summary": {
+      "properties": {
+        "claims_added": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "claims_removed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "claims_reworded": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "confidence_moved": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "gaps_closed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "gaps_raised": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "charts": {
+      "items": {
+        "properties": {
+          "caption": {
+            "type": "string"
+          },
+          "stats_pack_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "evidence_strength": {
+      "properties": {
+        "basis_summary": {
+          "type": "string"
+        },
+        "inferred_count": {
+          "type": "number"
+        },
+        "proven_count": {
+          "type": "number"
+        },
+        "unknown_count": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "executive_summary": {
+      "type": "string"
+    },
+    "gap_ledger": {
+      "items": {
+        "properties": {
+          "action_phrase": {
+            "type": "string"
+          },
+          "conclusions_affected": {
+            "type": "number"
+          },
+          "expected_impact": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "from_template": {
+            "type": "boolean"
+          },
+          "tier": {
+            "enum": [
+              "critical",
+              "high",
+              "optional"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "overall_confidence": {
+      "enum": [
+        "high",
+        "moderate",
+        "low"
+      ],
+      "type": "string"
+    },
+    "period": {
+      "type": "string"
+    },
+    "quality_review": {
+      "properties": {
+        "claims_rejected": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "what_could_mislead_a_skimmer": {
+          "type": "string"
+        },
+        "what_we_missed": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "sections": {
+      "items": {
+        "properties": {
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chart_spec": {
+            "properties": {
+              "caption": {
+                "type": "string"
+              },
+              "stats_pack_keys": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "claims": {
+            "items": {
+              "properties": {
+                "alternative": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "basis": {
+                  "type": "string"
+                },
+                "class": {
+                  "enum": [
+                    "proven",
+                    "inferred",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "narrative": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "cannot_support",
+              "partial"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "period",
+    "executive_summary",
+    "overall_confidence",
+    "sections",
+    "cannot_prove",
+    "gap_ledger",
+    "quality_review",
+    "charts",
+    "evidence_strength",
+    "change_summary"
+  ],
+  "type": "object"
+}

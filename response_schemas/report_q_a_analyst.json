@@ -1,0 +1,34 @@
+{
+  "properties": {
+    "answer": {
+      "type": "string"
+    },
+    "basis": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "class": {
+      "enum": [
+        "proven",
+        "inferred",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "related_gap": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "answer",
+    "class",
+    "basis",
+    "related_gap"
+  ],
+  "type": "object"
+}

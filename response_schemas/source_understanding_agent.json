@@ -1,0 +1,288 @@
+{
+  "properties": {
+    "columns": {
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "metric",
+              "dimension",
+              "timestamp",
+              "identifier"
+            ],
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "compatibility": {
+      "properties": {
+        "blocked_claims": {
+          "items": {
+            "properties": {
+              "claim": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "properties": {
+              "axes": {
+                "properties": {
+                  "entity_scope": {
+                    "enum": [
+                      "pass",
+                      "fail"
+                    ],
+                    "type": "string"
+                  },
+                  "grain": {
+                    "enum": [
+                      "pass",
+                      "fail"
+                    ],
+                    "type": "string"
+                  },
+                  "metric_definition": {
+                    "enum": [
+                      "pass",
+                      "fail"
+                    ],
+                    "type": "string"
+                  },
+                  "time_bucket": {
+                    "enum": [
+                      "pass",
+                      "fail"
+                    ],
+                    "type": "string"
+                  },
+                  "units_currency": {
+                    "enum": [
+                      "pass",
+                      "fail"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "pair": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "reconciliation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verdict": {
+                "enum": [
+                  "compatible",
+                  "reconcilable",
+                  "incompatible"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "safe_combinations": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "conflicts": {
+      "items": {
+        "properties": {
+          "data_value": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "fact": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "context_notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "entities": {
+      "items": {
+        "properties": {
+          "grain": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "row_count": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "facts": {
+      "items": {
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "page": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "rejected": {
+      "items": {
+        "properties": {
+          "candidate": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "relationships": {
+      "items": {
+        "properties": {
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "staleness": {
+      "type": "string"
+    },
+    "structural_flags": {
+      "items": {
+        "properties": {
+          "issue": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "supported_analyses": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "unsupported_analyses": {
+      "items": {
+        "properties": {
+          "analysis": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "entities",
+    "columns",
+    "relationships",
+    "supported_analyses",
+    "unsupported_analyses",
+    "structural_flags",
+    "compatibility",
+    "facts",
+    "conflicts",
+    "context_notes",
+    "rejected",
+    "staleness"
+  ],
+  "type": "object"
+}

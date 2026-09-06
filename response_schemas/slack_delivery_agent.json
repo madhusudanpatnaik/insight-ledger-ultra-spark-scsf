@@ -1,0 +1,22 @@
+{
+  "properties": {
+    "body": {
+      "type": "string"
+    },
+    "subject": {
+      "type": "null"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "subject",
+    "body",
+    "warnings"
+  ],
+  "type": "object"
+}

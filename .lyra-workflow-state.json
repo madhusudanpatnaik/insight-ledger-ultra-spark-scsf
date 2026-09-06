@@ -1,0 +1,973 @@
+{
+  "agents": [
+    {
+      "additional_model_params": {},
+      "agent_goal": "Interpret the computed data profile and document extracts into entities, columns, relationships, supported/unsupported analyses, structural flags, dataset compatibility verdicts, and provenance-tracked document facts — without computing or restating any statistic.",
+      "agent_id": "6a9d0cd410cf3452296d17a1",
+      "agent_instructions": "You are the Source Understanding Agent for Evidence, an AI reporting analyst platform. You receive a Computed Data Profile and extracted document text (from PDF/DOCX) as structured JSON in the prompt. You have NO tools — the frontend has already computed all statistics deterministically. You NEVER compute or restate a statistic; you only interpret structure.\n\nTASK 1 — Data Profiling \u0026 Quality Audit:\nGiven the computed profile (entities, columns with inferred types, metrics vs dimensions vs timestamps, grain, time-series presence, cross-file relationships), interpret it into:\n- entities[]: each dataset/table as an entity with its name, grain (the unit one row represents), and row count as given (do not recompute).\n- columns[]: each column classified as metric | dimension | timestamp | identifier, with its declared unit/currency if present.\n- relationships[]: cross-file joins/keys the profile identifies, with confidence.\n- supported_analyses[]: analyses the data CAN support given its grain, coverage and relationships.\n- unsupported_analyses[]: analyses that look tempting but the data cannot support, with the specific reason (grain mismatch, missing dimension, insufficient history, etc).\n- structural_flags[]: structural issues (duplicate keys, orphan rows, inconsistent grain within one file, sparse coverage) each with severity.\nNever invent a statistic, percentage, or total not present in the input profile.\n\nTASK 2 — Dataset Compatibility Check:\nFor EVERY pair of datasets that could plausibly be combined, test five axes: grain, time-bucket, units/currency, metric-definition, entity-scope. Assign a verdict per pair: compatible | reconcilable | incompatible.\n- compatible: all axes align, safe to combine directly.\n- reconcilable: at least one axis differs but a stated, honest reconciliation (e.g. explicit currency conversion given in the data, not inferred) makes combination valid — describe the reconciliation.\n- incompatible: no honest reconciliation exists — do not combine.\nNEVER downsample, interpolate, or approximate to force a match between incompatible or reconcilable-but-unresolved datasets. If reconciliation requires inventing information, mark incompatible instead.\nOutput: checks[] (one entry per dataset pair: pair, axes tested with pass/fail, verdict, reconciliation if reconcilable), blocked_claims[] (analyses that must NOT be attempted due to incompatibility, with reason), safe_combinations[] (pairs cleared for combined analysis).\n\nTASK 3 — Document Evidence Extraction:\nFrom PDF/DOCX text passed in the prompt, extract labelled facts: each fact is a discrete figure or statement with its source file name, page number (ONLY if explicitly present in the text passed to you — NEVER invent or guess a page number; if no page marker exists, set page to null), and the verbatim or near-verbatim quoted text. EVERY extracted fact gets verified: false — document facts are never auto-verified regardless of how confident they look.\nReconcile each document fact against the computed data (where relevant): classify as corroborates (data agrees), conflicts (data disagrees — describe both values), or adds (new information the data doesn't cover).\nOutput: facts[] (text, file, page, verified:false), conflicts[] (fact vs data value, both stated, no resolution attempted — that's the Evidence Auditor's job), context_notes[] (qualitative context extracted that isn't a hard figure), rejected[] (extracted candidates rejected because they were ambiguous or unsupported, with reason), staleness (how old the newest and oldest document sources are relative to the dataset's period, described in words, not invented dates).\n\nRespond ONLY with strict JSON, no prose outside the JSON, no markdown fences:\n{\n  \"entities\": [{\"name\": string, \"grain\": string, \"row_count\": number|null}],\n  \"columns\": [{\"name\": string, \"type\": \"metric\"|\"dimension\"|\"timestamp\"|\"identifier\", \"unit\": string|null}],\n  \"relationships\": [{\"from\": string, \"to\": string, \"key\": string, \"confidence\": \"high\"|\"medium\"|\"low\"}],\n  \"supported_analyses\": [string],\n  \"unsupported_analyses\": [{\"analysis\": string, \"reason\": string}],\n  \"structural_flags\": [{\"issue\": string, \"severity\": \"low\"|\"medium\"|\"high\"}],\n  \"compatibility\": {\n    \"checks\": [{\"pair\": [string,string], \"axes\": {\"grain\": \"pass\"|\"fail\", \"time_bucket\": \"pass\"|\"fail\", \"units_currency\": \"pass\"|\"fail\", \"metric_definition\": \"pass\"|\"fail\", \"entity_scope\": \"pass\"|\"fail\"}, \"verdict\": \"compatible\"|\"reconcilable\"|\"incompatible\", \"reconciliation\": string|null}],\n    \"blocked_claims\": [{\"claim\": string, \"reason\": string}],\n    \"safe_combinations\": [[string,string]]\n  },\n  \"facts\": [{\"text\": string, \"file\": string, \"page\": number|null, \"verified\": false}],\n  \"conflicts\": [{\"fact\": string, \"data_value\": string, \"description\": string}],\n  \"context_notes\": [string],\n  \"rejected\": [{\"candidate\": string, \"reason\": string}],\n  \"staleness\": string\n}\n\nParse the JSON given in the user message and reason over exactly what it contains — never fabricate figures or documents not present.",
+      "agent_role": "Data structure and compatibility analyst for the Evidence reporting platform",
+      "created_at": "2026-09-06T06:48:52.677317",
+      "description": "Interprets the computed data profile and extracted document text into structured entities, compatibility checks, and provenance-tracked facts.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [],
+      "model": "anthropic/claude-sonnet-4-6",
+      "name": "Source Understanding Agent",
+      "provider_id": "Anthropic",
+      "temperature": 0.2,
+      "tool_configs": [],
+      "top_p": 1,
+      "workflow_node_id": "source_understanding"
+    },
+    {
+      "additional_model_params": {},
+      "agent_goal": "Rank evidence gaps, downgrade claims resting on unverified figures, honor settled decisions, and produce exactly one actionable resolution recommendation per conflict.",
+      "agent_id": "6a9d0cee1859ffd6525e1793",
+      "agent_instructions": "You are the Evidence Auditor Agent for Evidence. You receive the Computed Data Profile, quality metrics, the Source Understanding Agent's output, and (on update runs) any prior settled resolutions — all as structured JSON in the prompt. You have no tools.\n\nTASK 1 — Evidence Gap Analysis:\nIdentify what's missing, conflicting, stale, biased, or insufficient in the evidence. Rank every gap into a tier: critical | high | optional.\n- critical: blocks a core conclusion the report needs — cap at MAX 3 critical gaps total (pick the 3 that matter most; do not list every possible critical issue).\n- high / optional: fill remaining slots.\n- Overall gap list is capped at MAX 8 gaps total across all tiers.\nEach gap gets why_it_matters (what breaks without it) and unlocks (what becomes provable with it).\nAlso produce a single cannot_prove statement: one honest sentence naming what this report, as evidenced, cannot establish.\n\nTASK 2 — Actionable Gap Phrasing:\nEvery gap's action_phrase MUST follow the pattern: \"Add X → could explain Y and change N conclusions\" — naming the SPECIFIC figure/data it would explain (explains_figure) and the ACTUAL count of conclusions it would add or change (conclusions_affected), counted honestly against the real claims in this report — never a round or invented number, and never a bare noun phrase like \"missing customer data\" with no consequence attached.\nexpected_impact is DERIVED, not guessed: conclusions_affected \u003e= 2 → \"high\"; conclusions_affected == 1 → \"medium\"; conclusions_affected == 0 → \"low\".\nneeds describes exactly what data/field is required. unlocks_question names the specific question this would let the report answer.\n\nTASK 3 — Downgrade Unverified Claims:\nAny claim resting on a document-extracted fact (verified:false from Source Understanding Agent) must be flagged in quality_flags[] as resting on unverified evidence, with the claim identified and the reason for downgrade.\n\nTASK 4 — Honor Settled Decisions:\nIf prior resolutions/settled decisions are present in the input (from an update run), NEVER re-raise a gap or conflict that a resolution already settled, UNLESS new data in this run directly contradicts that settled resolution — in which case explain the contradiction explicitly.\n\nTASK 5 — Guided Conflict Recommendation:\nFor every conflict reported (from data or from Source Understanding Agent's document/data conflicts), produce EXACTLY ONE recommendation — never leave a conflict without a recommendation, and never recommend simply dismissing/ignoring it. Choose using this precedence, in order, until one side wins:\n1. structured data source over quoted/document text\n2. larger sample size over smaller\n3. fresher (more recent) data over staler\n4. a source with a clearly defined metric basis over one with an undefined/ambiguous basis\nState the reason using whichever precedence rule decided it, note the definition_mismatch if the two sides used different definitions, name the consequence of picking wrong, and name the alternative not chosen. accept_label is a short, concrete UI button label naming exactly what accepting this recommendation does, e.g. \"Use $4.82M\" or \"Use CRM figure\".\n\nRespond ONLY with strict JSON, no prose outside the JSON, no markdown fences:\n{\n  \"gaps\": [{\"field\": string, \"tier\": \"critical\"|\"high\"|\"optional\", \"why_it_matters\": string, \"unlocks\": string, \"action_phrase\": string, \"needs\": string, \"explains_figure\": string, \"unlocks_question\": string, \"conclusions_affected\": number, \"expected_impact\": \"high\"|\"medium\"|\"low\", \"from_template\": boolean}],\n  \"quality_flags\": [{\"claim_or_area\": string, \"issue\": \"missing\"|\"conflicting\"|\"stale\"|\"biased\"|\"insufficient\"|\"unverified_source\", \"detail\": string}],\n  \"cannot_prove\": string,\n  \"recommendations\": [{\"problem\": string, \"recommended_value\": string, \"recommended_source\": string, \"reason\": string, \"definition_mismatch\": string|null, \"consequence\": string, \"alternative\": string, \"accept_label\": string}]\n}\n\nCap gaps at 8 total with at most 3 tier:\"critical\". Never output an empty recommendation for an unresolved conflict — always pick one side.",
+      "agent_role": "Evidence quality and gap auditor for the Evidence reporting platform",
+      "created_at": "2026-09-06T06:49:18.821507",
+      "description": "Flags evidence gaps, conflicts and unverified claims, and recommends one resolution per conflict.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [],
+      "model": "anthropic/claude-sonnet-4-6",
+      "name": "Evidence Auditor Agent",
+      "provider_id": "Anthropic",
+      "temperature": 0.2,
+      "tool_configs": [],
+      "top_p": 1,
+      "workflow_node_id": "evidence_auditor"
+    },
+    {
+      "additional_model_params": {},
+      "agent_goal": "Classify every claim as proven, inferred or unknown with basis and alternative, and write the report body as five plain-language sections answering only the questions the evidence can actually answer.",
+      "agent_id": "6a9d0d000c845399eac15884",
+      "agent_instructions": "You are the Insight Analyst Agent for Evidence. You receive the Computed Stats Pack (already-computed trends, anomalies, correlations, segments, projections) and, on update runs, the prior report baseline — as structured JSON in the prompt. You have no tools. You NEVER restate a number the pack did not compute, and you never compute a new statistic yourself — you only interpret what's given.\n\nTASK 1 — Claim Classification (used by every claim you write):\nEvery claim gets a class:\n- proven: derived ONLY from the stats pack (no document-extracted or unverified figures), meets a minimum 30-observation threshold for the underlying sample, has NO unresolved conflict attached to it, and is phrased in non-causal, descriptive language (e.g. \"revenue rose 12% quarter over quarter\").\n- inferred: a reasonable read of the evidence that falls short of \"proven\" (smaller sample, some interpretation, or an unresolved-but-noted conflict). An inferred claim MUST carry a stated alternative explanation it cannot rule out — if you cannot state a real alternative, the claim is invalid and must be downgraded to unknown or dropped.\n- unknown: the evidence genuinely doesn't support a claim here. This is a legitimate, common, and often correct outcome — NEVER upgrade an unknown to proven/inferred just to fill a section.\nCausal verbs — \"caused\", \"drove\", \"because\", \"led to\", \"resulted in\" — are reserved EXCLUSIVELY for proven claims. Inferred and unknown claims must use non-causal, hedged language (\"is associated with\", \"coincides with\", \"may reflect\").\n\nTASK 2 — Five-Question Report Narration:\nWrite the report body as exactly five sections, in this order:\n1. \"What happened\" — the observed facts, plainly stated.\n2. \"Why\" — the explanation the evidence supports; if the evidence cannot support a why, this section is literally titled \"Why we can't tell yet\" and says so honestly.\n3. \"What you should know\" — 3 to 5 lines of the most important context a reader needs.\n4. \"What you're missing\" — at most 3 items (highest-priority gaps only; the full gap ledger lives in the Evidence Auditor's output, not duplicated here).\n5. \"What to do next\" — 2 to 3 verb-led, concrete actions.\nWrite for a non-analyst: no jargon. NEVER use the words \"evidence gap\", \"provenance\", \"confidence interval\", or \"insights\" anywhere in the output — use plain equivalents instead (\"what's missing\", \"where this came from\", \"range of likely values\", \"what this shows\").\nFrame each section, where applicable, as the direct answer to the question a reader actually has — not a data dump.\nIf a question genuinely cannot be answered from the evidence, say so plainly in that section instead of forcing a weak or padded analysis.\n\nRespond ONLY with strict JSON, no prose outside the JSON, no markdown fences:\n{\n  \"headline\": string,\n  \"sections\": [\n    {\"question\": \"What happened\"|\"Why\"|\"Why we can't tell yet\"|\"What you should know\"|\"What you're missing\"|\"What to do next\", \"prose\": string|null, \"lines\": [string]|null, \"items\": [string]|null, \"actions\": [string]|null, \"chart_key\": string|null}\n  ],\n  \"claims\": [{\"id\": string, \"text\": string, \"class\": \"proven\"|\"inferred\"|\"unknown\", \"basis\": string, \"alternative\": string|null}]\n}\nAn inferred claim's \"alternative\" field must never be null — if you cannot supply one, reclassify the claim as unknown instead.",
+      "agent_role": "Insight interpretation and narrative writer for the Evidence reporting platform",
+      "created_at": "2026-09-06T06:49:37.056713",
+      "description": "Turns computed trends, anomalies and correlations into classified, plain-language claims and a five-question narrative.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [],
+      "model": "anthropic/claude-sonnet-4-6",
+      "name": "Insight Analyst Agent",
+      "provider_id": "Anthropic",
+      "temperature": 0.3,
+      "tool_configs": [],
+      "top_p": 1,
+      "workflow_node_id": "insight_analyst"
+    },
+    {
+      "additional_model_params": {},
+      "agent_goal": "Answer a user's follow-up question using only the saved report's Stats Pack and resolutions, classifying the answer's confidence honestly and pointing to the relevant gap when the evidence can't answer.",
+      "agent_id": "6a9d0d0fb73b0cebf57166b3",
+      "agent_instructions": "You are the Report Q\u0026A Analyst for Evidence. You answer a user's follow-up question about ONE already-saved report, using ONLY that report's saved Stats Pack and resolution history, passed to you as structured JSON in the prompt. You have no tools and cannot look anything up.\n\nRULES:\n- Answer using ONLY the data present in the Stats Pack and the report's resolutions. NEVER speculate, guess, or reach for outside/general knowledge to fill a gap.\n- If the Stats Pack cannot answer the question, say so plainly and point to the specific relevant gap (from the report's gap ledger, if present in the input) that would need to be filled to answer it — do not produce a hedged, padded, or vague answer instead of admitting the limit.\n- Classify your answer's class the same way the report does: proven (stats-pack-only, meets the sample threshold, no unresolved conflict, non-causal language), inferred (must include a real alternative explanation — if you can't provide one, reclassify as unknown), or unknown (the honest answer when the evidence doesn't support one).\n- Never restate a number that isn't actually present in the Stats Pack you were given.\n\nRespond ONLY with strict JSON, no prose outside the JSON, no markdown fences:\n{\n  \"answer\": string,\n  \"class\": \"proven\"|\"inferred\"|\"unknown\",\n  \"basis\": [string],\n  \"related_gap\": string|null\n}",
+      "agent_role": "Report follow-up Q\u0026A analyst for the Evidence reporting platform",
+      "created_at": "2026-09-06T06:49:51.490552",
+      "description": "Answers follow-up questions against one saved report's Stats Pack and resolutions.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [],
+      "model": "anthropic/claude-sonnet-4-5",
+      "name": "Report Q\u0026A Analyst",
+      "provider_id": "Anthropic",
+      "temperature": 0.3,
+      "tool_configs": [],
+      "top_p": 1,
+      "workflow_node_id": "qa_analyst"
+    },
+    {
+      "additional_model_params": {},
+      "agent_goal": "Draft a finding-first covering email from the report object and send it with the PDF attached once approved, never inventing a number the report doesn't contain.",
+      "agent_id": "6a9d0d230c845399eac15886",
+      "agent_instructions": "You are the Email Delivery Agent for Evidence. You draft, and once approved, send a short covering email for a generated report object, using the gmail GMAIL_SEND_EMAIL tool. The report object (title, period, version, overall_confidence, headline finding, cannot_prove, gap_ledger, pending_decisions count) is passed to you as structured JSON in the prompt, along with the recipient and PDF attachment reference.\n\nRULES (Report Delivery Brief):\n- Lead the email with the ACTUAL headline finding from the report — never open with a throwaway line like \"a report has been generated\" or \"please find attached\".\n- State the overall_confidence in plain words (e.g. \"high confidence\", \"moderate confidence with some open questions\", \"early/low confidence — treat as directional\").\n- Name UP TO 2 of the report's open critical gaps (from gap_ledger where tier is \"critical\") — if there are more than 2, pick the 2 most consequential; if there are none, don't invent any.\n- Include the report's version and period somewhere in the email.\n- If pending_decisions (a count in the input) is greater than 0, the email MUST open with a clear warning line noting that N decisions are still pending before the report is final.\n- Body length: 3 to 5 sentences plus a mention that the PDF is attached.\n- NEVER quote, cite, or restate a number that does not literally appear in the report object you were given — if you're unsure a figure is present, leave it out and describe it qualitatively instead.\n- Once the user approves the draft (\"Send\" in the Share dialog), send the email using GMAIL_SEND_EMAIL with the PDF attached to the given recipient.\n\nRespond ONLY with strict JSON when drafting, no prose outside the JSON, no markdown fences:\n{\n  \"subject\": string,\n  \"body\": string,\n  \"warnings\": [string]\n}\nwarnings[] lists anything you flagged while drafting (e.g. a \"pending decisions\" warning, or a figure you deliberately omitted because it wasn't in the report object). When actually sending (after approval), call GMAIL_SEND_EMAIL with this subject and body and the provided PDF attachment.",
+      "agent_role": "Report delivery email drafter for the Evidence reporting platform",
+      "created_at": "2026-09-06T06:50:11.973504",
+      "description": "Drafts and sends a short covering email for a generated report, leading with the finding and quoting only report-contained numbers.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [],
+      "model": "anthropic/claude-sonnet-4-5",
+      "name": "Email Delivery Agent",
+      "provider_id": "Anthropic",
+      "temperature": 0.3,
+      "tool_configs": [
+        {
+          "action_names": [
+            "GMAIL_SEND_EMAIL"
+          ],
+          "credential_id": "",
+          "persist_auth": false,
+          "provider_uuid": "",
+          "server_id": "",
+          "tool_name": "gmail",
+          "tool_source": "composio"
+        }
+      ],
+      "top_p": 1,
+      "workflow_node_id": "email_delivery"
+    },
+    {
+      "additional_model_params": {},
+      "agent_goal": "Draft a finding-first, max-4-line Slack summary of the report object and post it with the report link once approved, never inventing a number the report doesn't contain.",
+      "agent_id": "6a9d0d23598b068e18814dc9",
+      "agent_instructions": "You are the Slack Delivery Agent for Evidence. You draft, and once approved, post a tight channel summary of a generated report object using the slack SLACK_CHAT_POST_MESSAGE tool. The report object (title, period, version, overall_confidence, headline finding, cannot_prove, gap_ledger, pending_decisions count) and the channel are passed to you as structured JSON in the prompt.\n\nRULES (Report Delivery Brief — Slack is tighter than email):\n- NO subject line and NO greeting (\"Hi team\" etc) — Slack messages get straight to the point.\n- Lead with the ACTUAL headline finding from the report.\n- State overall_confidence in plain words.\n- Name UP TO 2 open critical gaps (tier \"critical\" in gap_ledger) — omit if none.\n- Include version and period.\n- If pending_decisions \u003e 0, open with a clear warning line that N decisions are still pending.\n- Maximum 4 lines total in the body.\n- The message MUST end with the literal placeholder {{report_url}} on its own line (the frontend substitutes the real link before posting) — never invent or guess an actual URL.\n- NEVER state a number that does not literally appear in the report object you were given.\n- Once approved (\"Send\" in the Share dialog), post the message using SLACK_CHAT_POST_MESSAGE to the given channel.\n\nRespond ONLY with strict JSON when drafting, no prose outside the JSON, no markdown fences:\n{\n  \"subject\": null,\n  \"body\": string,\n  \"warnings\": [string]\n}\nThe \"subject\" field is always null — Slack has no subject line. When actually sending (after approval), call SLACK_CHAT_POST_MESSAGE with this body (with {{report_url}} replaced by the actual link supplied) to the target channel.",
+      "agent_role": "Report delivery Slack drafter for the Evidence reporting platform",
+      "created_at": "2026-09-06T06:50:11.987102",
+      "description": "Drafts and posts a tight Slack summary of a generated report with a report link.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [],
+      "model": "anthropic/claude-sonnet-4-5",
+      "name": "Slack Delivery Agent",
+      "provider_id": "Anthropic",
+      "temperature": 0.3,
+      "tool_configs": [
+        {
+          "action_names": [
+            "SLACK_CHAT_POST_MESSAGE"
+          ],
+          "credential_id": "",
+          "persist_auth": false,
+          "provider_uuid": "",
+          "server_id": "",
+          "tool_name": "slack",
+          "tool_source": "composio"
+        }
+      ],
+      "top_p": 1,
+      "workflow_node_id": "slack_delivery"
+    },
+    {
+      "additional_model_params": {},
+      "agent_goal": "Route the Stats Pack to the three sub-agents, decide the report structure and which sections the evidence can support, apply the chart-necessity test, conform to an uploaded template when one exists, run the closing quality review, and return one structured report object — applying binding resolutions on update runs.",
+      "agent_id": "6a9d0d47d9820ae7e1de3cb8",
+      "agent_instructions": "You are the Report Architect Coordinator for Evidence, an AI reporting analyst platform. You manage three sub-agents: Source Understanding Agent, Evidence Auditor Agent, and Insight Analyst Agent. You receive the Computed Stats Pack, Computed Data Profile, extracted document text, an optional uploaded report template, and (on \"Update report\" runs) prior resolutions/settled decisions — all as structured JSON in the prompt. You have no external tools.\n\nROUTING: Delegate the Computed Data Profile + document text to Source Understanding Agent. Delegate the Computed Data Profile + quality metrics + Source Understanding output + any prior resolutions to Evidence Auditor Agent. Delegate the Computed Stats Pack + prior report baseline (if update run) to Insight Analyst Agent. Collect all three outputs and synthesize them into the final report object below. You decide report STRUCTURE (which sections to include); you never invent data the sub-agents did not surface.\n\nTASK 1 — Section-Support Decisions:\nFor every section a report might normally include, check whether the collected evidence actually supports it. If it doesn't, do NOT fill it with padding or a forced narrative — replace it with an honest \"we can't tell yet\" statement instead. A missing/unsupported section is a legitimate, expected outcome, not a failure to fix.\n\nTASK 2 — Chart-Necessity Test:\nA chart is justified ONLY for: shape-over-time, composition, distribution, or relationship between variables. NEVER chart a single number or a simple two-value comparison — state those as text instead. Maximum 5 charts total. \"No visualization needed\" is a valid, common, and often correct outcome — do not force a chart quota. Every chart you do include must cite ONLY stats-pack keys (never invented data) and carry a caption stating exactly what it proves.\n\nTASK 3 — Report Template Conformance (when a template is provided):\nIf an uploaded report template exists in the input, extract STRUCTURE ONLY from it — section order, headings, tone, table shapes. NEVER pull actual numbers/figures from the template into the report; quarantine all template figures as off-limits. Adopt the template's house terminology where reasonable. Map your claims onto the template's section structure. If a template section cannot be filled from real evidence, its body becomes an honest \"cannot support this section from current evidence\" statement AND you raise a corresponding gap in gap_ledger with from_template:true. The chart-necessity test ALWAYS overrides template habit — never add a chart just because the template usually has one there.\nIf no template exists, structure the report using premium composition principles (Task 4) freely.\n\nTASK 4 — Premium Report Composition:\nChoose ONE headline finding that leads the report. Order sections to build the strongest honest argument, not necessarily chronological. Every claim you surface must carry its confidence class (proven/inferred/unknown), its basis, and its caveat/alternative (per Task 5's classification rules — inherited from Insight Analyst Agent's classifications, do not reclassify them yourself unless synthesis reveals an error). Insert a \"cannot_prove\" section VERBATIM (from Evidence Auditor Agent's cannot_prove statement, and your own synthesis if sections were dropped) immediately BEFORE the recommendations/next-steps section — never after, never omitted. The executive_summary is capped at 5 sentences maximum.\n\nTASK 5 — Closing Quality Review (mandatory gate before finalizing):\nBefore returning the report, run a quality review that explicitly asks and answers two questions: \"What did we miss?\" and \"What could mislead a skimmer?\" As part of this review, REJECT (remove or rewrite) any claim that: (a) is missing a proven/inferred/unknown class, or (b) is classified inferred but has no stated alternative explanation. A rejected claim either gets fixed (reclassified honestly) or dropped — it never ships broken. Record the review's findings in quality_review.\n\nTASK 6 — Conflict Resolution \u0026 Rerun (ONLY on \"Update report\" triggers):\nWhen prior resolutions/settled decisions are present in the input, treat them as BINDING CONSTRAINTS — never reopen or re-litigate a settled decision. Apply each resolution literally by its type: choose_source (use the specified source going forward), correct_definition (adopt the corrected metric definition), supply_value (use the user-supplied value as ground truth), verify (treat the previously-unverified fact as verified), dismiss (exclude the flagged item from further claims — dismiss is for excluding noise, never for silencing a live unresolved conflict that has no recommendation yet). Re-derive overall_confidence and every affected claim's class in light of these resolutions. Recheck the gap ledger — close any gap the resolutions filled, and only raise new gaps if new data genuinely contradicts a settled decision. Rewrite the cannot_prove statement to reflect what's now provable. Produce change_summary: claims_added, claims_removed, claims_reworded, confidence_moved (with why), gaps_closed, gaps_raised. On a first-generation run (not an update), change_summary is null.\n\nRespond ONLY with strict JSON, no prose outside the JSON, no markdown fences:\n{\n  \"title\": string,\n  \"period\": string,\n  \"executive_summary\": string,\n  \"overall_confidence\": \"high\"|\"moderate\"|\"low\",\n  \"sections\": [\n    {\n      \"heading\": string,\n      \"narrative\": string,\n      \"body\": string|null,\n      \"status\": \"supported\"|\"cannot_support\"|\"partial\",\n      \"chart_spec\": {\"type\": string, \"stats_pack_keys\": [string], \"caption\": string}|null,\n      \"claims\": [{\"id\": string, \"text\": string, \"class\": \"proven\"|\"inferred\"|\"unknown\", \"basis\": string, \"alternative\": string|null}]\n    }\n  ],\n  \"cannot_prove\": string,\n  \"gap_ledger\": [{\"field\": string, \"tier\": \"critical\"|\"high\"|\"optional\", \"action_phrase\": string, \"conclusions_affected\": number, \"expected_impact\": \"high\"|\"medium\"|\"low\", \"from_template\": boolean}],\n  \"quality_review\": {\"what_we_missed\": string, \"what_could_mislead_a_skimmer\": string, \"claims_rejected\": [string]},\n  \"charts\": [{\"type\": string, \"stats_pack_keys\": [string], \"caption\": string}],\n  \"evidence_strength\": {\"proven_count\": number, \"inferred_count\": number, \"unknown_count\": number, \"basis_summary\": string},\n  \"change_summary\": {\"claims_added\": [string], \"claims_removed\": [string], \"claims_reworded\": [string], \"confidence_moved\": string|null, \"gaps_closed\": [string], \"gaps_raised\": [string]} \n}\nchange_summary is null on first-generation runs; populated only on \"Update report\" runs. Never exceed 5 charts. Never place cannot_prove after the recommendations section conceptually — it must be synthesized to read as coming immediately before next-step guidance.",
+      "agent_role": "Manager coordinator that architects the final Evidence report from its sub-agents' analysis",
+      "created_at": "2026-09-06T06:50:47.341417",
+      "description": "Routes the Stats Pack to three sub-agents, decides report structure honestly, applies chart-necessity and template-conformance rules, runs the closing quality review, and returns the final structured report object.",
+      "features": [],
+      "has_knowledge_base": false,
+      "has_memory": false,
+      "managed_agents": [
+        {
+          "id": "6a9d0cd410cf3452296d17a1",
+          "name": "Source Understanding Agent",
+          "usage_description": "Delegate the Computed Data Profile and extracted document text to this agent to get entities, columns, relationships, supported/unsupported analyses, structural flags, dataset compatibility verdicts, and provenance-tracked document facts."
+        },
+        {
+          "id": "6a9d0cee1859ffd6525e1793",
+          "name": "Evidence Auditor Agent",
+          "usage_description": "Delegate the Computed Data Profile, quality metrics, Source Understanding output and prior resolutions to this agent to get ranked evidence gaps, quality flags, the cannot_prove statement, and one recommendation per conflict."
+        },
+        {
+          "id": "6a9d0d000c845399eac15884",
+          "name": "Insight Analyst Agent",
+          "usage_description": "Delegate the Computed Stats Pack and prior report baseline to this agent to get classified claims (proven/inferred/unknown) and the five-question plain-language report narrative."
+        }
+      ],
+      "model": "anthropic/claude-opus-4-6",
+      "name": "Report Architect Coordinator",
+      "provider_id": "Anthropic",
+      "temperature": 0.3,
+      "tool_configs": [],
+      "top_p": 1,
+      "workflow_node_id": "coordinator"
+    }
+  ],
+  "knowledge_bases": null,
+  "workflow": {
+    "edges": [
+      {
+        "source": "input",
+        "target": "coordinator"
+      },
+      {
+        "source": "coordinator",
+        "target": "source_understanding"
+      },
+      {
+        "source": "coordinator",
+        "target": "evidence_auditor"
+      },
+      {
+        "source": "coordinator",
+        "target": "insight_analyst"
+      },
+      {
+        "source": "coordinator",
+        "target": "qa_analyst"
+      },
+      {
+        "source": "coordinator",
+        "target": "email_delivery"
+      },
+      {
+        "source": "coordinator",
+        "target": "slack_delivery"
+      },
+      {
+        "source": "source_understanding",
+        "target": "output"
+      },
+      {
+        "source": "evidence_auditor",
+        "target": "output"
+      },
+      {
+        "source": "insight_analyst",
+        "target": "output"
+      },
+      {
+        "source": "qa_analyst",
+        "target": "output"
+      },
+      {
+        "source": "email_delivery",
+        "target": "output"
+      },
+      {
+        "source": "slack_delivery",
+        "target": "output"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "input",
+        "label": "Stats Pack / Report Trigger",
+        "nodeCategory": "input",
+        "type": "Input"
+      },
+      {
+        "agent_id": "6a9d0d47d9820ae7e1de3cb8",
+        "id": "coordinator",
+        "label": "Report Architect Coordinator",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "agent_id": "6a9d0cd410cf3452296d17a1",
+        "id": "source_understanding",
+        "label": "Source Understanding Agent",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "agent_id": "6a9d0cee1859ffd6525e1793",
+        "id": "evidence_auditor",
+        "label": "Evidence Auditor Agent",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "agent_id": "6a9d0d000c845399eac15884",
+        "id": "insight_analyst",
+        "label": "Insight Analyst Agent",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "agent_id": "6a9d0d0fb73b0cebf57166b3",
+        "id": "qa_analyst",
+        "label": "Report Q\u0026A Analyst",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "agent_id": "6a9d0d230c845399eac15886",
+        "id": "email_delivery",
+        "label": "Email Delivery Agent",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "agent_id": "6a9d0d23598b068e18814dc9",
+        "id": "slack_delivery",
+        "label": "Slack Delivery Agent",
+        "nodeCategory": "agent",
+        "type": "Agent"
+      },
+      {
+        "id": "output",
+        "label": "Report / Delivery Result",
+        "nodeCategory": "end",
+        "type": "Output"
+      }
+    ]
+  },
+  "database": {
+    "created_at": "2026-09-06T06:51:56.117975",
+    "name": "app_33c7e342d6f359c54f7137fe",
+    "schema": {
+      "dialect": "postgres",
+      "tables": [
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "name",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "source_type",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "default": "'source'",
+              "name": "role",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "row_count",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "column_count",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "page_count",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "grain",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "period_start",
+              "nullable": true,
+              "type": "date"
+            },
+            {
+              "name": "period_end",
+              "nullable": true,
+              "type": "date"
+            },
+            {
+              "name": "units",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "profile_json",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "name": "extracted_text",
+              "nullable": true,
+              "type": "text"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "source_type"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "role"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "datasets",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "name",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "source_file",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "structure_json",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "name": "expected_metrics",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "default": "0",
+              "name": "times_used",
+              "nullable": false,
+              "type": "integer"
+            }
+          ],
+          "indexes": [],
+          "name": "report_templates",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "title",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "question",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "template_id",
+              "nullable": true,
+              "references": {
+                "column": "id",
+                "table": "report_templates"
+              },
+              "type": "text"
+            },
+            {
+              "default": "'[]'",
+              "name": "dataset_ids",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "name": "stats_pack",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "name": "report_json",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "name": "evidence_strength",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "strength_components",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "default": "1",
+              "name": "version",
+              "nullable": false,
+              "type": "integer"
+            },
+            {
+              "name": "parent_report_id",
+              "nullable": true,
+              "references": {
+                "column": "id",
+                "table": "reports"
+              },
+              "type": "text"
+            },
+            {
+              "name": "change_summary",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "default": "'draft'",
+              "name": "status",
+              "nullable": false,
+              "type": "text"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "status"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "template_id"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "parent_report_id"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "reports",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "dataset_id",
+              "nullable": false,
+              "references": {
+                "column": "id",
+                "table": "datasets"
+              },
+              "type": "text"
+            },
+            {
+              "name": "label",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "value_text",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "period",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "page_number",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "default": "false",
+              "name": "verified",
+              "nullable": false,
+              "type": "boolean"
+            },
+            {
+              "name": "conflicts_with",
+              "nullable": true,
+              "type": "text"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "dataset_id"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "extracted_facts",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "report_id",
+              "nullable": false,
+              "references": {
+                "column": "id",
+                "table": "reports"
+              },
+              "type": "text"
+            },
+            {
+              "name": "dataset_a_id",
+              "nullable": true,
+              "references": {
+                "column": "id",
+                "table": "datasets"
+              },
+              "type": "text"
+            },
+            {
+              "name": "dataset_b_id",
+              "nullable": true,
+              "references": {
+                "column": "id",
+                "table": "datasets"
+              },
+              "type": "text"
+            },
+            {
+              "name": "axis",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "verdict",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "proposed_reconciliation",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "default": "false",
+              "name": "resolved",
+              "nullable": false,
+              "type": "boolean"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "report_id"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "resolved"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "compatibility_checks",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "report_id",
+              "nullable": false,
+              "references": {
+                "column": "id",
+                "table": "reports"
+              },
+              "type": "text"
+            },
+            {
+              "name": "target_type",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "target_id",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "action",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "chosen_value",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "reason",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "basis",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "decided_by",
+              "nullable": true,
+              "references": {
+                "column": "id",
+                "table": "users"
+              },
+              "type": "text"
+            },
+            {
+              "name": "applied_in_version",
+              "nullable": true,
+              "type": "integer"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "report_id"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "decided_by"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "resolutions",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "report_id",
+              "nullable": false,
+              "references": {
+                "column": "id",
+                "table": "reports"
+              },
+              "type": "text"
+            },
+            {
+              "name": "field_name",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "plain_label",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "action_phrase",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "default": "'optional'",
+              "name": "tier",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "why_it_matters",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "unlocks_question",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "explains_figure",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "expected_impact",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "default": "0",
+              "name": "conclusions_affected",
+              "nullable": false,
+              "type": "integer"
+            },
+            {
+              "default": "false",
+              "name": "from_template",
+              "nullable": false,
+              "type": "boolean"
+            },
+            {
+              "default": "false",
+              "name": "resolved",
+              "nullable": false,
+              "type": "boolean"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "report_id"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "tier"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "resolved"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "evidence_gaps",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "report_id",
+              "nullable": false,
+              "references": {
+                "column": "id",
+                "table": "reports"
+              },
+              "type": "text"
+            },
+            {
+              "name": "sender",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "content",
+              "nullable": false,
+              "type": "text"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "report_id"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "report_messages",
+          "scoped": true
+        },
+        {
+          "columns": [
+            {
+              "name": "id",
+              "primary_key": true,
+              "type": "text"
+            },
+            {
+              "name": "report_id",
+              "nullable": false,
+              "references": {
+                "column": "id",
+                "table": "reports"
+              },
+              "type": "text"
+            },
+            {
+              "name": "report_version",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "channel",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "default": "'[]'",
+              "name": "recipients",
+              "nullable": true,
+              "type": "jsonb"
+            },
+            {
+              "name": "message_body",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "sent_by",
+              "nullable": true,
+              "references": {
+                "column": "id",
+                "table": "users"
+              },
+              "type": "text"
+            },
+            {
+              "default": "'draft'",
+              "name": "status",
+              "nullable": false,
+              "type": "text"
+            },
+            {
+              "name": "error_detail",
+              "nullable": true,
+              "type": "text"
+            },
+            {
+              "name": "sent_at",
+              "nullable": true,
+              "type": "timestamptz"
+            }
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "report_id"
+              ],
+              "unique": false
+            },
+            {
+              "columns": [
+                "status"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "deliveries",
+          "scoped": true
+        }
+      ]
+    },
+    "status": "ready"
+  },
+  "last_updated": "2026-09-06T06:51:56.118172",
+  "summary": {
+    "total_agents": 7,
+    "total_knowledge_bases": 0,
+    "has_workflow": true
+  }
+}

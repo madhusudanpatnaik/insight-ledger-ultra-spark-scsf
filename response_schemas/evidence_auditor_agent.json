@@ -1,0 +1,125 @@
+{
+  "properties": {
+    "cannot_prove": {
+      "type": "string"
+    },
+    "gaps": {
+      "items": {
+        "properties": {
+          "action_phrase": {
+            "type": "string"
+          },
+          "conclusions_affected": {
+            "type": "number"
+          },
+          "expected_impact": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "explains_figure": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "from_template": {
+            "type": "boolean"
+          },
+          "needs": {
+            "type": "string"
+          },
+          "tier": {
+            "enum": [
+              "critical",
+              "high",
+              "optional"
+            ],
+            "type": "string"
+          },
+          "unlocks": {
+            "type": "string"
+          },
+          "unlocks_question": {
+            "type": "string"
+          },
+          "why_it_matters": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "quality_flags": {
+      "items": {
+        "properties": {
+          "claim_or_area": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "issue": {
+            "enum": [
+              "missing",
+              "conflicting",
+              "stale",
+              "biased",
+              "insufficient",
+              "unverified_source"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "recommendations": {
+      "items": {
+        "properties": {
+          "accept_label": {
+            "type": "string"
+          },
+          "alternative": {
+            "type": "string"
+          },
+          "consequence": {
+            "type": "string"
+          },
+          "definition_mismatch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "problem": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "recommended_source": {
+            "type": "string"
+          },
+          "recommended_value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "gaps",
+    "quality_flags",
+    "cannot_prove",
+    "recommendations"
+  ],
+  "type": "object"
+}

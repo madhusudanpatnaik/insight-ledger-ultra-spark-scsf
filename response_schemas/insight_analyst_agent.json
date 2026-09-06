@@ -1,0 +1,102 @@
+{
+  "properties": {
+    "claims": {
+      "items": {
+        "properties": {
+          "alternative": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "basis": {
+            "type": "string"
+          },
+          "class": {
+            "enum": [
+              "proven",
+              "inferred",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "chart_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "prose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "question": {
+            "enum": [
+              "What happened",
+              "Why",
+              "Why we can't tell yet",
+              "What you should know",
+              "What you're missing",
+              "What to do next"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "headline",
+    "sections",
+    "claims"
+  ],
+  "type": "object"
+}

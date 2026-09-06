@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+:root {
+    --font-sans: "Roboto Flex", sans-serif;
+    --background: 190 42.9% 97.3%;
+    --foreground: 192.9 63.6% 8.6%;
+    --card: 180 100% 99.4%;
+    --card-foreground: 197.1 70% 3.9%;
+    --popover: 180 100% 99.4%;
+    --popover-foreground: 197.1 70% 3.9%;
+    --primary: 191.5 96.9% 25.3%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42.6 100% 50%;
+    --secondary-foreground: 31.3 85.2% 10.6%;
+    --muted: 190 28.6% 91.8%;
+    --muted-foreground: 196 7.7% 38.2%;
+    --accent: 188.4 96.9% 37.5%;
+    --accent-foreground: 0 0% 17.8401%;
+    --destructive: 12.9 75.1% 47.3%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 191.3 22.9% 86.3%;
+    --input: 194.1 12.6% 73.5%;
+    --ring: 191.5 96.9% 25.3%;
+    --chart-1: 191.5 96.9% 25.3%;
+    --chart-2: 42.6 100% 50%;
+    --chart-3: 130.1 52.7% 39.8%;
+    --chart-4: 188.4 96.9% 37.5%;
+    --chart-5: 12.9 75.1% 47.3%;
+    --radius: 0px;
+    --sidebar-background: 190 42.9% 97.3%;
+    --sidebar-foreground: 197.1 70% 3.9%;
+    --sidebar-primary: 191.5 96.9% 25.3%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 187.5 30.8% 94.9%;
+    --sidebar-accent-foreground: 197.1 70% 3.9%;
+    --sidebar-border: 191.3 22.9% 86.3%;
+    --sidebar-ring: 191.5 96.9% 25.3%;
+}
+
+.dark {
+    --font-sans: "Roboto Flex", sans-serif;
+    --background: 200 60% 2%;
+    --foreground: 187.5 9.8% 83.9%;
+    --card: 196.4 47.8% 4.5%;
+    --card-foreground: 187.5 9.8% 83.9%;
+    --popover: 196.4 47.8% 4.5%;
+    --popover-foreground: 187.5 9.8% 83.9%;
+    --primary: 188.4 96.9% 37.5%;
+    --primary-foreground: 204 71.4% 1.4%;
+    --secondary: 39.8 81.9% 54.5%;
+    --secondary-foreground: 30 88.9% 7.1%;
+    --muted: 192 30.6% 9.6%;
+    --muted-foreground: 192 4.1% 52.2%;
+    --accent: 192.5 81.8% 17.3%;
+    --accent-foreground: 188.2 36.7% 88.2%;
+    --destructive: 11.8 76.2% 55.5%;
+    --destructive-foreground: 0 0% 11.9607%;
+    --border: 196.7 23.1% 15.3%;
+    --input: 196.7 18.4% 19.2%;
+    --ring: 188.5 100% 29.2%;
+    --chart-1: 189.6 71.9% 37.6%;
+    --chart-2: 39.8 81.9% 54.5%;
+    --chart-3: 129.4 48.1% 36.3%;
+    --chart-4: 186.7 43.4% 55.7%;
+    --chart-5: 12 60% 51%;
+    --radius: 0px;
+    --sidebar-background: 195 66.7% 1.2%;
+    --sidebar-foreground: 187.5 9.8% 83.9%;
+    --sidebar-primary: 188.4 96.9% 37.5%;
+    --sidebar-primary-foreground: 204 71.4% 1.4%;
+    --sidebar-accent: 196.4 47.8% 4.5%;
+    --sidebar-accent-foreground: 187.5 9.8% 83.9%;
+    --sidebar-border: 196.7 23.1% 15.3%;
+    --sidebar-ring: 188.5 100% 29.2%;
+}
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Added by the design-system writer: this theme ships a .dark block,
+   so the app supports both schemes. Native controls and the pre-paint
+   scheme resolver in app/layout.tsx both read this. */
+:root {
+    color-scheme: light dark;
+}
