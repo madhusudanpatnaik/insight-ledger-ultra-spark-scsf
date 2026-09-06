@@ -371,48 +371,200 @@ export default function ReportScreen({ report, authFetch, userId, activeAgentId,
     setDownloadingPdf(true)
     try {
       const { jsPDF } = await import('jspdf')
-      const doc = new jsPDF({ unit: 'pt' })
-      let y = 56
-      const left = 48
-      const width = 500
-      doc.setFontSize(18)
-      doc.text(rj.title || 'Report', left, y); y += 22
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+      const pageW = doc.internal.pageSize.getWidth()
+      const pageH = doc.internal.pageSize.getHeight()
+      const left = 50
+      const right = pageW - 50
+      const contentW = right - left
+
+      // ---- brand palette (mirrors app/globals.css tokens) ----
+      const INK: [number, number, number] = [8, 30, 38]          // foreground
+      const MUTED: [number, number, number] = [95, 118, 125]     // muted-foreground
+      const TEAL: [number, number, number] = [8, 92, 108]        // primary
+      const TEAL_LIGHT: [number, number, number] = [230, 246, 248]
+      const CARD_BORDER: [number, number, number] = [214, 227, 229]
+      const EMERALD: [number, number, number] = [4, 120, 87]
+      const EMERALD_BG: [number, number, number] = [230, 248, 242]
+      const VIOLET: [number, number, number] = [109, 40, 217]
+      const VIOLET_BG: [number, number, number] = [242, 235, 253]
+      const AMBER: [number, number, number] = [180, 108, 8]
+      const AMBER_BG: [number, number, number] = [252, 242, 224]
+      const RED: [number, number, number] = [190, 40, 40]
+      const RED_BG: [number, number, number] = [252, 232, 232]
+
+      let y = 0
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > pageH - 56) {
+          doc.addPage()
+          y = 56
+        }
+      }
+
+      const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
+      const setText = (c: [number, number, number]) => doc.setTextColor(c[0], c[1], c[2])
+      const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
+
+      // ---- header band ----
+      setFill(TEAL)
+      doc.rect(0, 0, pageW, 118, 'F')
+      setText([255, 255, 255])
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(20)
+      const titleLines = doc.splitTextToSize(rj.title || 'Report', contentW)
+      doc.text(titleLines, left, 46)
+      doc.setFont('helvetica', 'normal')
       doc.setFontSize(10)
-      doc.setTextColor(110)
-      doc.text(`${rj.period || ''}  \u00b7  Evidence strength ${report.evidence_strength}  \u00b7  v${report.version}`, left, y); y += 24
-      doc.setTextColor(20)
-      doc.setFontSize(12)
-      const summaryLines = doc.splitTextToSize(rj.executive_summary || '', width)
-      doc.text(summaryLines, left, y); y += summaryLines.length * 14 + 12
+      doc.setTextColor(220, 240, 242)
+      doc.text(`${rj.period || ''}`, left, 46 + titleLines.length * 20 + 4)
+      doc.setFontSize(9)
+      doc.text(`Evidence strength ${report.evidence_strength}/100  \u00b7  Version ${report.version}  \u00b7  ${rj.overall_confidence?.toUpperCase() || ''} confidence`, left, 46 + titleLines.length * 20 + 20)
+      y = 140
+
+      // ---- executive summary card ----
+      setText(INK)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.text('EXECUTIVE SUMMARY', left, y)
+      y += 12
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(11.5)
+      const summaryLines = doc.splitTextToSize(rj.executive_summary || '', contentW - 24)
+      const summaryBoxH = summaryLines.length * 15 + 24
+      setFill(TEAL_LIGHT)
+      setDraw(CARD_BORDER)
+      doc.roundedRect(left, y, contentW, summaryBoxH, 6, 6, 'FD')
+      setText(INK)
+      doc.text(summaryLines, left + 12, y + 20)
+      y += summaryBoxH + 20
+
+      // ---- claim class chip helper ----
+      const classPalette: Record<string, { fg: [number, number, number]; bg: [number, number, number] }> = {
+        proven: { fg: EMERALD, bg: EMERALD_BG },
+        inferred: { fg: VIOLET, bg: VIOLET_BG },
+        unknown: { fg: AMBER, bg: AMBER_BG },
+      }
+
+      const drawChip = (label: string, x: number, yy: number, palette: { fg: [number, number, number]; bg: [number, number, number] }) => {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7.5)
+        const w = doc.getTextWidth(label.toUpperCase()) + 14
+        setFill(palette.bg)
+        doc.roundedRect(x, yy - 9, w, 13, 6, 6, 'F')
+        setText(palette.fg)
+        doc.text(label.toUpperCase(), x + 7, yy)
+        doc.setFont('helvetica', 'normal')
+        return w
+      }
+
+      // ---- sections ----
       for (const section of rj.sections || []) {
-        if (y > 740) { doc.addPage(); y = 56 }
+        ensureSpace(40)
+        setDraw(CARD_BORDER)
+        doc.setLineWidth(1)
+        doc.line(left, y, right, y)
+        y += 18
+        setText(TEAL)
+        doc.setFont('helvetica', 'bold')
         doc.setFontSize(13)
-        doc.setTextColor(10)
-        doc.text(section.heading, left, y); y += 16
+        doc.text(section.heading, left, y)
+        y += 6
+        if (section.status === 'cannot_support') {
+          const w = drawChip('cannot support', right - 90, y - 3, { fg: AMBER, bg: AMBER_BG })
+        }
+        y += 12
+        doc.setFont('helvetica', 'normal')
         doc.setFontSize(10.5)
-        doc.setTextColor(60)
+        setText([50, 65, 70])
         const bodyText = section.narrative || section.body || ''
         if (bodyText) {
-          const lines = doc.splitTextToSize(bodyText, width)
-          doc.text(lines, left, y); y += lines.length * 13 + 6
+          ensureSpace(24)
+          const lines = doc.splitTextToSize(bodyText, contentW)
+          doc.text(lines, left, y)
+          y += lines.length * 13.5 + 8
         }
         for (const claim of section.claims || []) {
-          if (y > 760) { doc.addPage(); y = 56 }
-          const lines = doc.splitTextToSize(`\u2022 ${claim.text} [${claim.class}]`, width)
-          doc.text(lines, left, y); y += lines.length * 12.5 + 2
+          ensureSpace(30)
+          const palette = classPalette[claim.class] || classPalette.unknown
+          const lines = doc.splitTextToSize(claim.text, contentW - 20)
+          setText(INK)
+          doc.setFontSize(10)
+          doc.text(lines, left + 14, y)
+          const chipY = y - 8
+          drawChip(claim.class, right - 70, chipY, palette)
+          y += lines.length * 13 + 4
+          if (claim.basis) {
+            setText(MUTED)
+            doc.setFont('helvetica', 'italic')
+            doc.setFontSize(8.5)
+            doc.text(`Basis: ${claim.basis}`, left + 14, y)
+            doc.setFont('helvetica', 'normal')
+            y += 12
+          }
+          y += 4
         }
-        y += 8
+        y += 10
       }
-      if (y > 700) { doc.addPage(); y = 56 }
-      doc.setFontSize(13)
-      doc.setTextColor(10)
-      doc.text("What you're missing", left, y); y += 16
-      doc.setFontSize(10.5)
-      doc.setTextColor(60)
-      for (const gap of rj.gap_ledger || []) {
-        const lines = doc.splitTextToSize(`\u2022 ${gap.action_phrase}`, width)
-        doc.text(lines, left, y); y += lines.length * 12.5 + 2
+
+      // ---- cannot prove callout ----
+      if (rj.cannot_prove) {
+        ensureSpace(60)
+        const lines = doc.splitTextToSize(rj.cannot_prove, contentW - 24)
+        const boxH = lines.length * 13 + 30
+        setFill(AMBER_BG)
+        setDraw([230, 200, 150])
+        doc.roundedRect(left, y, contentW, boxH, 6, 6, 'FD')
+        setText(AMBER)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.text("WHAT THIS REPORT CANNOT PROVE", left + 12, y + 16)
+        doc.setFont('helvetica', 'normal')
+        setText([80, 60, 20])
+        doc.setFontSize(10)
+        doc.text(lines, left + 12, y + 30)
+        y += boxH + 20
       }
+
+      // ---- gap ledger ----
+      if ((rj.gap_ledger || []).length) {
+        ensureSpace(30)
+        setText(TEAL)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(13)
+        doc.text("What you're missing", left, y)
+        y += 16
+        for (const gap of rj.gap_ledger || []) {
+          ensureSpace(26)
+          const tierColor: [number, number, number] = gap.tier === 'critical' ? RED : gap.tier === 'high' ? AMBER : MUTED
+          setFill(tierColor)
+          doc.circle(left + 4, y - 3, 3, 'F')
+          setText(INK)
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(10)
+          const lines = doc.splitTextToSize(gap.action_phrase, contentW - 60)
+          doc.text(lines, left + 14, y)
+          const chipPalette = gap.tier === 'critical' ? { fg: RED, bg: RED_BG } : gap.tier === 'high' ? { fg: AMBER, bg: AMBER_BG } : { fg: MUTED, bg: [240, 243, 244] as [number, number, number] }
+          drawChip(gap.tier, right - 60, y - 8, chipPalette)
+          y += lines.length * 13 + 8
+        }
+        y += 10
+      }
+
+      // ---- footer on every page ----
+      const pageCount = doc.getNumberOfPages()
+      for (let p = 1; p <= pageCount; p++) {
+        doc.setPage(p)
+        setDraw(CARD_BORDER)
+        doc.setLineWidth(0.75)
+        doc.line(left, pageH - 34, right, pageH - 34)
+        setText(MUTED)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.text('Generated by Evidence \u2014 your data, explained honestly.', left, pageH - 20)
+        doc.text(`Page ${p} of ${pageCount}`, right, pageH - 20, { align: 'right' })
+      }
+
       doc.save(`${(rj.title || 'report').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-v${report.version}.pdf`)
       toast.success('PDF downloaded')
     } catch (err: any) {
