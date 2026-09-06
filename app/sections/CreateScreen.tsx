@@ -3,11 +3,12 @@
 import React, { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   UploadCloud, FileSpreadsheet, FileText, FileJson, FileType, CheckCircle2,
-  AlertTriangle, XCircle, Loader2, ChevronRight, X,
+  AlertTriangle, XCircle, Loader2, ChevronRight, X, Database,
 } from 'lucide-react'
 import { callAIAgent } from '@/lib/aiAgent'
 import {
@@ -257,20 +258,56 @@ export default function CreateScreen({ authFetch, activeAgentId, setActiveAgentI
     })
   }
 
-  return (
-    <div className="mx-auto max-w-[640px] px-6 pb-16 pt-10 sm:pt-12">
-      <h1 className="text-[28px] font-semibold tracking-tight text-balance sm:text-[30px]">Create a report</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Drop in whatever you have. Messy is fine.</p>
+  const sampleQuestions = [
+    'Why did enterprise bookings decline in Q2?',
+    'What drove the variance across regional accounts?',
+    'Is margin contraction volume-driven or price-driven?',
+  ]
 
+  return (
+    <div className="mx-auto max-w-3xl px-6 pb-20 pt-8 sm:pt-10">
+      {/* Editorial Header */}
+      <div className="border-b border-border pb-6">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-0.5 text-[11px] font-mono text-primary uppercase">
+          <Database className="h-3 w-3" /> Step 1 · Data Ingestion &amp; Profiling
+        </div>
+        <h1 className="mt-2 font-editorial text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+          New Evidence Dossier
+        </h1>
+        <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground max-w-xl text-pretty">
+          Drop in raw operational spreadsheets, JSON feeds, or prior document decks. Evidence calculates every metric deterministically before the agents begin auditing.
+        </p>
+      </div>
+
+      {/* Modern High-Aesthetic Dropzone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`mt-6 rounded-xl border-[1.5px] border-dashed bg-card px-5 py-10 text-center transition-colors sm:py-12 ${dragOver ? 'border-primary bg-primary/5' : 'border-border'}`}
+        className={`relative mt-6 overflow-hidden rounded-2xl border-2 border-dashed p-8 text-center transition-all sm:p-12 ${
+          dragOver
+            ? 'border-primary bg-primary/10 ring-4 ring-primary/15'
+            : 'border-border bg-card/80 hover:border-primary/40 hover:bg-card'
+        }`}
       >
-        <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
-        <div className="mt-3 text-lg font-semibold text-foreground">Drop your files here</div>
-        <div className="mt-1.5 text-xs text-muted-foreground">Excel \u00b7 CSV \u00b7 PDF \u00b7 Word \u00b7 JSON</div>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-sm">
+          <UploadCloud className="h-7 w-7" />
+        </div>
+        <h3 className="mt-4 font-editorial text-xl font-semibold text-foreground">
+          Drag &amp; drop source files here
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Financial sheets, customer logs, prior board PDFs, or word documents
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+          {['.XLSX', '.CSV', '.JSON', '.PDF', '.DOCX'].map((ext) => (
+            <span key={ext} className="rounded-md border border-border bg-muted/30 px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+              {ext}
+            </span>
+          ))}
+        </div>
+
         <input
           ref={inputRef}
           type="file"
@@ -279,130 +316,246 @@ export default function CreateScreen({ authFetch, activeAgentId, setActiveAgentI
           className="hidden"
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
         />
-        <Button className="mt-4 min-h-[40px]" variant="outline" onClick={() => inputRef.current?.click()}>
-          Choose files
-        </Button>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Button className="min-h-[42px] shadow-sm" onClick={() => inputRef.current?.click()}>
+            Browse files from device
+          </Button>
+
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:bg-muted/40 transition-colors">
+            <input
+              type="checkbox"
+              className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+              checked={uploadAsTemplate}
+              onChange={(e) => setUploadAsTemplate(e.target.checked)}
+            />
+            <span>Mark next upload as <strong className="text-foreground">House Template</strong></span>
+          </label>
+        </div>
       </div>
 
+      {/* Profiles Deck */}
       {profiles.length > 0 && (
-        <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-          {profiles.map((p) => (
-            <div key={p.name} className="flex items-center gap-3 px-4 py-3 text-sm">
-              {p.status === 'ok' && <CheckCircle2 className="h-4 w-4 shrink-0 text-[color:var(--chart-2,theme(colors.emerald.600))]" />}
-              {p.status === 'blocked' && <XCircle className="h-4 w-4 shrink-0 text-destructive" />}
-              {p.status === 'warning' && <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />}
-              <span className="shrink-0 text-muted-foreground">{fileIcon(p.source_type)}</span>
-              <span className="min-w-0 flex-1 truncate font-medium text-foreground">{p.name}</span>
-              <span className="hidden truncate text-xs text-muted-foreground sm:block">{p.detail}</span>
-              <span className="ml-auto shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground">data</span>
-              <button onClick={() => removeProfile(p.name)} aria-label={`Remove ${p.name}`} className="ml-1 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-          {templateProfile && (
-            <div className="flex items-center gap-3 px-4 py-3 text-sm">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-              <span className="shrink-0 text-muted-foreground">{fileIcon(templateProfile.source_type)}</span>
-              <span className="min-w-0 flex-1 truncate font-medium text-foreground">{templateProfile.name}</span>
-              <span className="hidden truncate text-xs text-muted-foreground sm:block">{templateProfile.detail}</span>
-              <span className="ml-auto shrink-0 rounded border border-[color:var(--primary)]/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">template</span>
-              <button onClick={() => setTemplateProfile(null)} aria-label="Remove template" className="ml-1 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
+        <div className="mt-6 space-y-2.5">
+          <div className="flex items-center justify-between text-xs font-mono text-muted-foreground uppercase px-1">
+            <span>Uploaded Data Sources ({profiles.length})</span>
+            <span>Deterministic Parsing</span>
+          </div>
+
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            {profiles.map((p) => (
+              <div key={p.name} className="flex items-center gap-3.5 px-4 py-3.5 text-sm transition-colors hover:bg-muted/20">
+                <span className="shrink-0">
+                  {p.status === 'ok' && <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                  {p.status === 'blocked' && <XCircle className="h-4 w-4 text-destructive" />}
+                  {p.status === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                </span>
+
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+                  {fileIcon(p.source_type)}
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium text-foreground">{p.name}</span>
+                    <span className="rounded border border-border/80 bg-muted/40 px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground uppercase">
+                      {p.source_type}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono truncate">{p.detail}</div>
+                </div>
+
+                <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-medium text-primary uppercase">
+                  Data Source
+                </span>
+
+                <button
+                  onClick={() => removeProfile(p.name)}
+                  aria-label={`Remove ${p.name}`}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+
+            {templateProfile && (
+              <div className="flex items-center gap-3.5 px-4 py-3.5 text-sm bg-primary/5">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  {fileIcon(templateProfile.source_type)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-semibold text-foreground">{templateProfile.name}</span>
+                    <span className="rounded border border-primary/30 bg-primary/15 px-2 py-0.2 font-mono text-[10px] font-bold text-primary uppercase">
+                      House Format
+                    </span>
+                  </div>
+                  <div className="text-xs text-primary font-mono truncate">Structure &amp; tone detected; numbers are excluded</div>
+                </div>
+                <button
+                  onClick={() => setTemplateProfile(null)}
+                  aria-label="Remove template"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
+      {/* Blocked Files Guidance */}
       {blockedFiles.map((p) => (
-        <div key={p.name} className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-[13.5px]">
-          <b className="block text-sm text-destructive">I can&apos;t verify {p.name}&apos;s figures against your data yet</b>
-          <p className="mt-1 text-muted-foreground">Document figures are kept separate and marked unverified until confirmed \u2014 they won&apos;t anchor a headline finding alone.</p>
+        <div key={p.name} className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs">
+          <div className="flex items-center gap-2 font-semibold text-destructive">
+            <XCircle className="h-4 w-4 shrink-0" />
+            <span>Document Extraction Guardrail: {p.name}</span>
+          </div>
+          <p className="mt-1 text-muted-foreground leading-relaxed pl-6">
+            Figures extracted from this document are marked as unverified provenance facts. They are kept isolated and will never anchor a headline claim unless corroborated by tabular sheets.
+          </p>
         </div>
       ))}
 
+      {/* Compatibility Checks Gate */}
       {compatChecks.map((c, i) => (
-        <div key={i} className="mt-3 rounded-lg border border-amber-300/50 bg-amber-50 px-4 py-3 text-[13.5px] dark:bg-amber-950/20">
-          <b className="block text-sm text-amber-700 dark:text-amber-400">Two files measure time differently</b>
-          <p className="mt-1 text-muted-foreground">{c.reconciliation}</p>
+        <div key={i} className="mt-4 rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-xs dark:bg-amber-950/20">
+          <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Compatibility Gate: Grain Mismatch Reconciled</span>
+          </div>
+          <p className="mt-1 text-muted-foreground leading-relaxed pl-6">
+            {c.reconciliation}
+          </p>
         </div>
       ))}
 
       {period && (
-        <div className="mt-3 text-[13.5px] text-muted-foreground">
-          {period} <button className="text-primary hover:underline" onClick={() => setPeriod('')}>Change</button>
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-card/60 px-4 py-2.5 text-xs text-muted-foreground">
+          <span>{period}</span>
+          <button className="text-primary font-medium hover:underline" onClick={() => setPeriod('')}>
+            Edit detected period
+          </button>
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 border-t border-border pt-5 sm:grid-cols-2">
+      {/* Question & Template Inputs */}
+      <div className="mt-7 grid grid-cols-1 gap-5 border-t border-border pt-6 sm:grid-cols-2">
         <div>
-          <label className="block text-[13.5px] text-muted-foreground" htmlFor="q">What do you want to understand? (optional)</label>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-foreground mb-1" htmlFor="q">
+            Investigative Target (Optional)
+          </label>
+          <p className="text-[11px] text-muted-foreground mb-2">Focuses agent synthesis on an executive question.</p>
           <Textarea
             id="q"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Why did sales decline in Q2?"
-            className="mt-2 min-h-[44px] resize-none text-[14.5px]"
+            placeholder="e.g. Why did bookings decline in Q2?"
+            className="min-h-[72px] resize-none text-xs bg-card"
           />
-        </div>
-        <div>
-          <label className="block text-[13.5px] text-muted-foreground">Follow a report template (optional)</label>
-          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
-            <span className="truncate text-sm text-foreground">{templateProfile ? templateProfile.name : 'None selected'}</span>
-            <label className="shrink-0">
-              <input
-                type="checkbox"
-                className="peer sr-only"
-                checked={uploadAsTemplate}
-                onChange={(e) => setUploadAsTemplate(e.target.checked)}
-              />
-              <span className={`inline-flex min-h-[32px] cursor-pointer items-center rounded-md border px-3 text-xs font-medium transition-colors ${uploadAsTemplate ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
-                {uploadAsTemplate ? 'Next upload = template' : 'Mark next upload as template'}
-              </span>
-            </label>
+
+          {/* Quick Prompt Chips */}
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {sampleQuestions.map((sq, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setQuestion(sq)}
+                className="rounded-md border border-border/80 bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors text-left"
+              >
+                {sq}
+              </button>
+            ))}
           </div>
-          {templateProfile && (
-            <div className="mt-2 text-xs text-primary">
-              Following your structure, using your new numbers. <span className="text-muted-foreground">({templateProfile.detail})</span>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-foreground mb-1">
+            House Report Template (Optional)
+          </label>
+          <p className="text-[11px] text-muted-foreground mb-2">Conforms headings &amp; register to existing formats.</p>
+          
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-xs text-foreground truncate">
+                {templateProfile ? templateProfile.name : 'No template attached'}
+              </span>
+              <Badge variant={templateProfile ? 'default' : 'outline'} className="text-[10px] font-mono">
+                {templateProfile ? 'Active' : 'Optional'}
+              </Badge>
             </div>
-          )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {templateProfile
+                ? 'Your headings, section order and narrative style will be honored. Data numbers remain pure.'
+                : 'Upload a prior deck or docx to mirror your firm’s exact reporting conventions.'}
+            </p>
+          </div>
         </div>
       </div>
 
       {errorMsg && (
-        <div className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {errorMsg}
+        <div className="mt-5 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
+          <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>{errorMsg}</div>
         </div>
       )}
 
+      {/* CTA Button or Generation Progress */}
       {!generating && (
-        <div className="mt-6 flex flex-col items-stretch justify-end gap-3 sm:flex-row sm:items-center">
-          <p className="text-xs text-muted-foreground sm:mr-auto">Both are optional \u2014 files alone are enough.</p>
-          <Button size="lg" disabled={!canGenerate} onClick={handleGenerate} className="min-h-[44px]">
-            Generate report <ChevronRight className="ml-1 h-4 w-4" />
+        <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-border pt-6">
+          <p className="text-xs text-muted-foreground">
+            {dataProfiles.length === 0 ? 'Upload at least one spreadsheet or data source to start.' : `${dataProfiles.length} data source${dataProfiles.length > 1 ? 's' : ''} staged for audit.`}
+          </p>
+          <Button
+            size="lg"
+            disabled={!canGenerate}
+            onClick={handleGenerate}
+            className="min-h-[46px] px-6 text-sm font-semibold shadow-md shadow-primary/20"
+          >
+            Generate Dossier <ChevronRight className="ml-1.5 h-4 w-4" />
           </Button>
         </div>
       )}
 
       {generating && (
-        <div className="mt-6 max-w-sm rounded-lg border border-border bg-card p-5">
-          {TICKS.map((label, i) => (
-            <div key={label} className="flex items-center gap-3 py-1.5 text-[14.5px]">
-              {ticks[i] === 'done' && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />}
-              {ticks[i] === 'active' && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />}
-              {ticks[i] === 'pending' && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted" />}
-              <span className={ticks[i] === 'pending' ? 'text-muted-foreground' : 'text-foreground'}>{label}</span>
+        <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-lg shadow-black/5">
+          <div className="flex items-center justify-between border-b border-border pb-4">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="font-semibold text-sm text-foreground">Orchestrating Report Architect</span>
             </div>
-          ))}
+            <span className="font-mono text-xs text-primary">Claude Opus 4.6</span>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {TICKS.map((label, i) => (
+              <div key={label} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  {ticks[i] === 'done' && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+                  {ticks[i] === 'active' && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />}
+                  {ticks[i] === 'pending' && <span className="h-2 w-2 rounded-full bg-muted shrink-0 ml-1 mr-1" />}
+                  <span className={ticks[i] === 'pending' ? 'text-muted-foreground' : 'font-medium text-foreground'}>
+                    {label}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {ticks[i] === 'done' ? 'COMPLETE' : ticks[i] === 'active' ? 'AUDITING' : 'WAITING'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {sampleData && profiles.length === 0 && !generating && (
-        <p className="mt-8 text-xs text-muted-foreground">
-          Turn off Sample Data in the top bar once you have real files to see only your own reports.
-        </p>
+        <div className="mt-8 rounded-xl border border-dashed border-border/80 p-4 text-center text-xs text-muted-foreground">
+          Exploring? The Sample Data toggle in the header already loads ready-to-inspect dossiers.
+        </div>
       )}
     </div>
   )
 }
+

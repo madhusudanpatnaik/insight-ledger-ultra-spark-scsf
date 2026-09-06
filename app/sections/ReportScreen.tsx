@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   ArrowLeft, Download, Send, MessageSquare, ChevronRight, Loader2, CheckCircle2,
-  AlertCircle, History, Mail, MessageCircle as SlackIcon, X, Info, Circle,
+  AlertCircle, History, Mail, MessageCircle as SlackIcon, X, Info, Circle, Sparkles,
 } from 'lucide-react'
 import { callAIAgent } from '@/lib/aiAgent'
 import { AGENT_IDS, renderMarkdown } from '@/app/page'
@@ -56,21 +57,50 @@ function classLabel(c: ClaimClass) {
   return 'unknown'
 }
 function classClasses(c: ClaimClass) {
-  if (c === 'proven') return 'border-emerald-300/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-  if (c === 'inferred') return 'border-violet-300/60 bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400'
-  return 'border-amber-300/60 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+  if (c === 'proven') return 'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+  if (c === 'inferred') return 'border-violet-400/40 bg-violet-500/10 text-violet-700 dark:text-violet-400'
+  return 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
 }
 
 function ClaimLine({ claim }: { claim: Claim }) {
+  const isProven = claim.class === 'proven'
+  const isInferred = claim.class === 'inferred'
+  const isUnknown = claim.class === 'unknown'
   return (
-    <div className="max-w-[68ch] border-b border-border py-2.5 last:border-0">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-        <span className="text-[14.5px] text-foreground">{claim.text}</span>
-        <span className={`inline-block w-fit shrink-0 rounded border px-1.5 py-px text-[11px] ${classClasses(claim.class)}`}>{classLabel(claim.class)}</span>
+    <div className="border-b border-border/80 py-3.5 last:border-0 group">
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2.5">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center">
+            {isProven && <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+            {isInferred && <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />}
+            {isUnknown && <AlertCircle className="h-3.5 w-3.5 text-amber-500" />}
+          </span>
+          <span className="text-[15px] font-medium leading-snug text-foreground">
+            {claim.text}
+          </span>
+        </div>
+        <span className={`inline-flex items-center gap-1 shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider font-semibold ${classClasses(claim.class)}`}>
+          {claim.class}
+        </span>
       </div>
-      {claim.class !== 'proven' && claim.alternative && (
-        <div className="mt-1 text-[13.5px] text-muted-foreground">
-          {claim.class === 'inferred' ? "Can't rule out: " : ''}{claim.alternative}
+      
+      {claim.basis && (
+        <div className="mt-1.5 pl-6 text-xs font-mono text-muted-foreground">
+          Basis: <span className="text-foreground/80">{claim.basis}</span>
+        </div>
+      )}
+
+      {isInferred && claim.alternative && (
+        <div className="mt-2 ml-6 rounded-lg border border-violet-400/30 bg-violet-500/5 p-2.5 text-xs text-muted-foreground">
+          <span className="font-editorial italic font-semibold text-foreground">Alternative explanation: </span>
+          {claim.alternative}
+        </div>
+      )}
+
+      {isUnknown && claim.alternative && (
+        <div className="mt-2 ml-6 rounded-lg border border-amber-400/30 bg-amber-500/5 p-2.5 text-xs text-muted-foreground">
+          <span className="font-editorial italic font-semibold text-foreground">What would settle it: </span>
+          {claim.alternative}
         </div>
       )}
     </div>
@@ -79,21 +109,42 @@ function ClaimLine({ claim }: { claim: Claim }) {
 
 function MiniChart({ values, caption }: { values: number[]; caption: string }) {
   if (!Array.isArray(values) || values.length < 2) return null
-  const w = 640, h = 160, pad = 28
+  const w = 680, h = 180, pad = 36
   const min = Math.min(...values), max = Math.max(...values)
   const range = max - min || 1
   const pts = values.map((v, i) => {
     const x = pad + (i / (values.length - 1)) * (w - pad * 2)
     const y = h - pad - ((v - min) / range) * (h - pad * 2)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
+    return { x: parseFloat(x.toFixed(1)), y: parseFloat(y.toFixed(1)), v }
+  })
+  const ptsString = pts.map((p) => `${p.x},${p.y}`).join(' ')
+  const areaString = `${pad},${h - pad} ${ptsString} ${w - pad},${h - pad}`
+
   return (
-    <div className="mt-4 rounded-lg border border-border bg-card p-4">
-      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={caption}>
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="currentColor" className="text-border" />
-        <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={2.4} className="text-primary" />
+    <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between text-xs text-muted-foreground font-mono mb-2">
+        <span>Weekly Velocity Trend</span>
+        <span>Peak: ${max.toLocaleString()} · Trough: ${min.toLocaleString()}</span>
+      </div>
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={caption} className="overflow-visible">
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+        <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke="currentColor" className="text-border/40" strokeDasharray="4 4" />
+        <line x1={pad} y1={h / 2} x2={w - pad} y2={h / 2} stroke="currentColor" className="text-border/40" strokeDasharray="4 4" />
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="currentColor" className="text-border/80" />
+        <polygon points={areaString} fill="url(#chartGrad)" />
+        <polyline points={ptsString} fill="none" stroke="currentColor" strokeWidth={2.8} className="text-primary" />
+        <circle cx={pts[0].x} cy={pts[0].y} r={4.5} className="fill-primary stroke-card stroke-2" />
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4.5} className="fill-primary stroke-card stroke-2" />
       </svg>
-      <div className="mt-2 text-xs text-muted-foreground">{caption}</div>
+      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground border-t border-border/60 pt-2.5">
+        <span className="font-editorial italic text-foreground/90">{caption}</span>
+        <span className="font-mono text-[11px]">Stats Pack Verified</span>
+      </div>
     </div>
   )
 }
@@ -110,19 +161,26 @@ function StrengthBreakdown({ report }: { report: ReportRow }) {
   const max: Record<string, number> = { 'Data completeness': 25, 'Source consistency': 20, 'Evidence coverage': 25, 'Analytical coverage': 20, Freshness: 10 }
   const weakest = rows.reduce((a, b) => (a[1] / (max[a[0]] || 1) < b[1] / (max[b[0]] || 1) ? a : b))
   return (
-    <div className="w-72 space-y-2.5 p-1">
-      <p className="text-xs text-muted-foreground">How well the available evidence supports this report.</p>
-      {rows.map(([label, val]) => (
-        <div key={label} className="flex items-center gap-2 text-xs">
-          <span className="w-32 shrink-0 text-muted-foreground">{label}</span>
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <span className="block h-full rounded-full bg-primary" style={{ width: `${(val / (max[label] || 1)) * 100}%` }} />
-          </span>
-          <span className="w-10 shrink-0 text-right font-mono tabular-nums text-foreground">{val}/{max[label]}</span>
-        </div>
-      ))}
-      <div className="border-t border-border pt-2 text-xs text-muted-foreground">
-        Raising it most: strengthen <span className="font-medium text-foreground">{weakest[0].toLowerCase()}</span>.
+    <div className="w-80 space-y-3 p-2">
+      <div>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Evidence Strength Index</h4>
+        <p className="text-[11px] text-muted-foreground">Computed score on coverage, consistency, and null rates.</p>
+      </div>
+      <div className="space-y-2">
+        {rows.map(([label, val]) => (
+          <div key={label} className="space-y-1 text-xs">
+            <div className="flex justify-between text-muted-foreground">
+              <span>{label}</span>
+              <span className="font-mono font-semibold tabular-nums text-foreground">{val} / {max[label]}</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${(val / (max[label] || 1)) * 100}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-border pt-2 text-[11px] text-muted-foreground">
+        Fastest path to raise score: address <b className="text-foreground">{weakest[0].toLowerCase()}</b> via the Improve tab.
       </div>
     </div>
   )
@@ -383,230 +441,431 @@ export default function ReportScreen({ report, authFetch, userId, activeAgentId,
   const nextSection = rj.sections.find((s) => s.heading.toLowerCase().includes('next'))
   const otherSections = rj.sections.filter((s) => ![whatHappened, whySection, knowSection, missingSection, nextSection].includes(s))
 
-  const gapDot = (tier: string) => (tier === 'critical' ? 'bg-destructive' : tier === 'high' ? 'bg-amber-500' : 'bg-muted-foreground')
+  const gapDot = (tier: string) => (tier === 'critical' ? 'bg-destructive ring-4 ring-destructive/20' : tier === 'high' ? 'bg-amber-500 ring-4 ring-amber-500/20' : 'bg-muted-foreground ring-4 ring-muted/20')
+
+  const score = report.evidence_strength || 0
+  const scoreBadgeColor = score >= 70
+    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+    : score >= 50
+    ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30'
+    : 'text-destructive bg-destructive/10 border-destructive/30'
 
   return (
-    <div className="min-h-screen">
-      <div className="border-b border-border bg-card px-4 pb-4 pt-5 sm:px-6">
-        <div className="mx-auto flex max-w-[790px] flex-wrap items-start justify-between gap-5">
-          <div className="min-w-0">
-            <button onClick={onBack} className="mb-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-3.5 w-3.5" /> Reports
+    <div className="min-h-screen pb-24">
+      {/* Executive Header Ribbon */}
+      <div className="border-b border-border bg-card/90 px-4 pb-6 pt-6 sm:px-8 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className="group mb-2.5 inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" /> Back to reports
             </button>
-            <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[26px]">{rj.title}</h1>
-            <div className="mt-1 text-[13.5px] text-muted-foreground">{rj.period}</div>
-            <div className="mt-3 flex flex-wrap items-center gap-2.5 text-sm">
-              <span className="text-foreground">Evidence strength</span>
-              <span className="h-1.5 w-[130px] overflow-hidden rounded-full bg-muted">
-                <span className="block h-full rounded-full bg-primary transition-all" style={{ width: `${report.evidence_strength}%` }} />
+
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Badge variant="outline" className="text-[10px] font-mono tracking-wider">
+                v{report.version}.0 {report.status === 'current' ? 'CURRENT' : report.status.toUpperCase()}
+              </Badge>
+              <span className="text-xs text-muted-foreground font-mono">
+                {rj.period}
               </span>
-              <span className="font-mono font-semibold tabular-nums text-foreground">{report.evidence_strength}</span>
+              {isSample && (
+                <Badge variant="secondary" className="text-[10px] font-mono text-primary">
+                  Demo Sample
+                </Badge>
+              )}
+            </div>
+
+            <h1 className="font-editorial text-3xl sm:text-4xl font-semibold tracking-tight text-foreground text-balance">
+              {rj.title}
+            </h1>
+
+            {report.question && (
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground italic">
+                &ldquo;{report.question}&rdquo;
+              </p>
+            )}
+
+            {/* Evidence Strength Meter Pill */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-1.5">
+                <span className="text-xs font-mono text-muted-foreground uppercase">Evidence Strength:</span>
+                <span className={`rounded-md border px-2 py-0.5 font-mono text-xs font-bold ${scoreBadgeColor}`}>
+                  {score} / 100
+                </span>
+                <span className="text-xs font-medium text-foreground">
+                  {score >= 70 ? 'High Confidence' : score >= 50 ? 'Moderate Confidence' : 'Low Confidence'}
+                </span>
+              </div>
+
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="text-[13px] text-primary hover:underline">How is this calculated?</button>
+                  <button className="text-xs font-medium text-primary hover:underline flex items-center gap-1">
+                    <Info className="h-3.5 w-3.5" /> How is this audited?
+                  </button>
                 </PopoverTrigger>
-                <PopoverContent align="start"><StrengthBreakdown report={report} /></PopoverContent>
+                <PopoverContent align="start" className="w-84 p-0 border-border bg-card shadow-xl">
+                  <StrengthBreakdown report={report} />
+                </PopoverContent>
               </Popover>
             </div>
-            <div className="mt-1 text-[12.5px] text-muted-foreground">How well the available evidence supports this report.</div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+
+          {/* Action Toolbar */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-end sm:self-auto">
             <button
               onClick={() => setShowEvidence((v) => !v)}
-              className="flex min-h-[40px] items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-[13.5px] transition-colors hover:bg-muted"
+              className={`flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-medium transition-all ${
+                showEvidence
+                  ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                  : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
             >
-              <Switch checked={showEvidence} onCheckedChange={setShowEvidence} className="pointer-events-none" />
-              Show evidence
+              <Switch checked={showEvidence} onCheckedChange={setShowEvidence} className="pointer-events-none scale-75" />
+              <span>Audit Evidence</span>
             </button>
-            <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf} className="min-h-[40px]">
-              {downloadingPdf ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
-              Download PDF
+
+            <Button variant="outline" onClick={handleDownloadPdf} disabled={downloadingPdf} className="min-h-[40px] rounded-xl text-xs">
+              {downloadingPdf ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+              PDF
             </Button>
-            <Button variant="outline" onClick={() => setShareOpen(true)} className="min-h-[40px]">
-              <Send className="mr-1.5 h-4 w-4" /> Send report
+
+            <Button variant="outline" onClick={() => setShareOpen(true)} className="min-h-[40px] rounded-xl text-xs">
+              <Send className="mr-1.5 h-3.5 w-3.5" /> Send
             </Button>
-            <Button onClick={() => setQaOpen(true)} className="min-h-[40px]">
-              <MessageSquare className="mr-1.5 h-4 w-4" /> Ask a question
+
+            <Button onClick={() => setQaOpen(true)} className="min-h-[40px] rounded-xl text-xs shadow-sm">
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Ask question
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[790px] px-4 pb-20 sm:px-6">
+      <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-8 space-y-10">
+        {/* Adjudicated Decision Banner */}
         {pendingCount > 0 && (
-          <div className="sticky top-0 z-10 -mx-4 mb-6 flex flex-col gap-3 bg-[#0F2830] px-4 py-3 text-[#DCE8EA] sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div>
-              <b className="text-white">{pendingCount} decision{pendingCount === 1 ? '' : 's'} applied</b>
-              <div className="mt-0.5 text-[12.5px] text-[#93B0B7]">The report rebuilds once, when you&apos;re ready.</div>
+          <div className="sticky top-16 z-10 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-primary/40 bg-sidebar p-4 text-sidebar-foreground shadow-lg shadow-black/10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-foreground font-bold font-mono text-sm">
+                {pendingCount}
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-white">
+                  {pendingCount} decision{pendingCount === 1 ? '' : 's'} recorded &amp; pending application
+                </div>
+                <div className="text-xs text-sidebar-foreground/70">
+                  The Report Coordinator will rebuild the analysis once with all binding constraints.
+                </div>
+              </div>
             </div>
-            <Button onClick={handleUpdateReport} disabled={updating} className="min-h-[40px] w-full bg-accent text-accent-foreground hover:opacity-90 sm:w-auto">
-              {updating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-              Update report
+            <Button
+              onClick={handleUpdateReport}
+              disabled={updating}
+              className="min-h-[40px] w-full sm:w-auto bg-accent text-accent-foreground font-semibold hover:opacity-95 shadow-md"
+            >
+              {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Rebuild Dossier to v{report.version + 1}
             </Button>
           </div>
         )}
 
-        <p className="max-w-[58ch] text-[21px] font-medium leading-[1.5] text-balance">{rj.executive_summary}</p>
-        {rj.cannot_prove && <p className="mt-3 max-w-[64ch] text-[15px] text-muted-foreground">{rj.cannot_prove}</p>}
+        {/* Executive Summary */}
+        <section className="space-y-4">
+          <div className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span>Executive Synthesis</span>
+          </div>
+          <p className="font-editorial text-2xl sm:text-[26px] font-normal leading-relaxed text-foreground max-w-3xl text-balance">
+            {rj.executive_summary}
+          </p>
 
+          {/* What the data cannot prove */}
+          {rj.cannot_prove && (
+            <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 p-4 sm:p-5 dark:bg-amber-950/20">
+              <div className="flex items-center gap-2 text-xs font-mono font-semibold uppercase text-amber-700 dark:text-amber-400 mb-1.5">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Audit Boundary · What the Data Cannot Prove</span>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed pl-6">
+                {rj.cannot_prove}
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* Reconciliation cards for pending compatibility */}
         {pendingCompatIdx.map(({ c, i }) => (
-          <div key={i} className="mt-5 rounded-lg border border-border border-l-[3px] border-l-accent bg-card p-4 sm:p-[18px]">
-            <b className="block text-[15.5px] text-foreground">
-              {c.verdict === 'incompatible' ? `I can't combine ${c.pair[0]} and ${c.pair[1]}'s figures` : `${c.pair[0]} and ${c.pair[1]} measure time differently`}
+          <div key={i} className="rounded-xl border border-border border-l-4 border-l-accent bg-card p-5 shadow-sm">
+            <b className="block text-sm font-semibold text-foreground">
+              {c.verdict === 'incompatible'
+                ? `Cross-File Gate: Cannot merge ${c.pair[0]} and ${c.pair[1]}`
+                : `Cross-File Gate: ${c.pair[0]} and ${c.pair[1]} measure time differently`}
             </b>
-            <p className="mt-1.5 max-w-[62ch] text-sm text-muted-foreground">{c.reconciliation}</p>
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{c.reconciliation}</p>
             <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
               {c.verdict !== 'incompatible' && (
-                <Button size="sm" onClick={() => acceptRecommendation(`compat-${i}`, c.reconciliation ?? '')}>Use rolled-up figure</Button>
+                <Button size="sm" onClick={() => acceptRecommendation(`compat-${i}`, c.reconciliation ?? '')}>
+                  Accept Rolled-Up Figure
+                </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => setSourceOpen(true)}>Review sources</Button>
+              <Button size="sm" variant="outline" onClick={() => setSourceOpen(true)}>
+                Inspect Sources
+              </Button>
             </div>
           </div>
         ))}
 
+        {/* Section 1: What happened */}
         {whatHappened && (
-          <section className="mt-9">
-            <h3 className="flex items-baseline justify-between gap-3 border-b border-foreground pb-1.5 text-[15px] font-semibold">
-              {whatHappened.heading}
-            </h3>
-            {whatHappened.narrative && <p className="mt-3.5 max-w-[66ch] text-[15px]">{whatHappened.narrative}</p>}
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-baseline justify-between border-b border-border pb-3">
+              <h2 className="font-editorial text-xl sm:text-2xl font-semibold text-foreground">
+                1. {whatHappened.heading}
+              </h2>
+              <span className="text-xs font-mono text-muted-foreground uppercase">Deterministic Narrative</span>
+            </div>
+            {whatHappened.narrative && (
+              <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/90 max-w-3xl">
+                {whatHappened.narrative}
+              </p>
+            )}
             {whatHappened.chart_spec ? (
               (() => {
                 const key = whatHappened.chart_spec.stats_pack_keys?.[0]
                 const values = key ? getByPath(report.stats_pack, key) : null
-                return Array.isArray(values) && values.length > 1
-                  ? <MiniChart values={values} caption={whatHappened.chart_spec.caption} />
-                  : <div className="mt-3 text-[13px] italic text-muted-foreground">No visualization needed here.</div>
+                return Array.isArray(values) && values.length > 1 ? (
+                  <MiniChart values={values} caption={whatHappened.chart_spec.caption} />
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border p-3 text-xs italic text-muted-foreground">
+                    No visualization needed here — numbers are fully cited in the text.
+                  </div>
+                )
               })()
-            ) : (
-              <div className="mt-3 text-[13px] italic text-muted-foreground">No visualization needed here.</div>
-            )}
+            ) : null}
           </section>
         )}
 
+        {/* Section 2: Why we can't tell yet / Why */}
         {whySection && (
-          <section className={`mt-9 ${whySection.status === 'cannot_support' ? '' : ''}`}>
-            <h3 className={`flex items-baseline justify-between gap-3 border-b pb-1.5 text-[15px] font-semibold ${whySection.status === 'cannot_support' ? 'border-amber-500' : 'border-foreground'}`}>
-              {whySection.heading}
-            </h3>
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-baseline justify-between border-b border-border pb-3">
+              <h2 className="font-editorial text-xl sm:text-2xl font-semibold text-foreground">
+                2. {whySection.heading}
+              </h2>
+              <span className="text-xs font-mono text-amber-600 dark:text-amber-400 uppercase">
+                {whySection.status === 'cannot_support' ? 'Unfilled Section' : 'Analytical Reasoning'}
+              </span>
+            </div>
+
             {whySection.status === 'cannot_support' ? (
-              <div className="mt-3.5 border-l-[3px] border-amber-500 bg-amber-50/60 p-4 dark:bg-amber-950/10">
-                <p className="max-w-[64ch] text-[15px]">{whySection.narrative}</p>
-                {whySection.body && <div className="mt-2.5 text-[13.5px] text-primary">{whySection.body}</div>}
+              <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 p-4 sm:p-5 dark:bg-amber-950/15">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>Honest Restraint · Section Left Open</span>
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/90 pl-6">
+                  {whySection.narrative}
+                </p>
+                {whySection.body && (
+                  <div className="mt-3 pl-6 text-xs font-mono font-medium text-primary">
+                    &rarr; {whySection.body}
+                  </div>
+                )}
               </div>
             ) : (
-              <>
-                {whySection.narrative && <p className="mt-3.5 max-w-[66ch] text-[15px]">{whySection.narrative}</p>}
-                {whySection.chart_spec && (() => {
-                  const key = whySection.chart_spec.stats_pack_keys?.[0]
-                  const values = key ? getByPath(report.stats_pack, key) : null
-                  return Array.isArray(values) && values.length > 1 ? <MiniChart values={values} caption={whySection.chart_spec.caption} /> : null
-                })()}
-              </>
+              <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/90 max-w-3xl">
+                {whySection.narrative}
+              </p>
             )}
           </section>
         )}
 
+        {/* Other Sections if any */}
         {otherSections.map((s, idx) => (
-          <section key={idx} className="mt-9">
-            <h3 className="flex items-baseline justify-between gap-3 border-b border-foreground pb-1.5 text-[15px] font-semibold">
-              {s.heading}
-              <em className="whitespace-nowrap text-[12.5px] font-normal not-italic text-muted-foreground">{s.status === 'cannot_support' ? "we can't fill it yet" : ''}</em>
-            </h3>
-            {s.status === 'cannot_support' ? (
-              <div className="mt-3.5 border-l-[3px] border-amber-500 bg-amber-50/60 p-4 dark:bg-amber-950/10">
-                <p className="max-w-[64ch] text-[15px]">{s.narrative}</p>
-                {s.body && <div className="mt-2.5 text-[13.5px] text-primary">{s.body}</div>}
-              </div>
-            ) : (
-              <p className="mt-3.5 max-w-[66ch] text-[15px]">{s.narrative}</p>
-            )}
+          <section key={idx} className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-baseline justify-between border-b border-border pb-3">
+              <h2 className="font-editorial text-xl sm:text-2xl font-semibold text-foreground">
+                {s.heading}
+              </h2>
+              <span className="text-xs font-mono text-muted-foreground uppercase">{s.status}</span>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/90">{s.narrative}</p>
           </section>
         ))}
 
+        {/* Section 3: What you should know */}
         {knowSection && (
-          <section className="mt-9">
-            <h3 className="flex items-baseline justify-between gap-3 border-b border-foreground pb-1.5 text-[15px] font-semibold">
-              {knowSection.heading}
-              <em className="whitespace-nowrap text-[12.5px] font-normal not-italic text-muted-foreground">every line labelled</em>
-            </h3>
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-baseline justify-between border-b border-border pb-3">
+              <h2 className="font-editorial text-xl sm:text-2xl font-semibold text-foreground">
+                3. {knowSection.heading}
+              </h2>
+              <span className="text-xs font-mono text-muted-foreground uppercase">Strict Claim Auditing</span>
+            </div>
+
             {knowSection.claims.length === 0 ? (
-              <p className="mt-3.5 text-sm text-muted-foreground">Nothing here yet.</p>
+              <p className="text-xs text-muted-foreground">No explicit claims isolated in this section.</p>
             ) : (
-              <>
-                <div className="mt-3.5 text-[13px] italic text-muted-foreground">No chart here \u2014 these are single facts, and the sentences carry them.</div>
-                <div className="mt-1">
-                  {knowSection.claims.map((c) => <ClaimLine key={c.id} claim={c} />)}
-                </div>
-              </>
+              <div className="divide-y divide-border/60">
+                {knowSection.claims.map((c) => (
+                  <ClaimLine key={c.id} claim={c} />
+                ))}
+              </div>
             )}
           </section>
         )}
 
+        {/* Section 4: What you're missing (THE HERO IMPROVEMENT LEVER) */}
         {missingSection && (
-          <section className="mt-9">
-            <h3 className="flex items-baseline justify-between gap-3 border-b border-foreground pb-1.5 text-[15px] font-semibold">
-              {missingSection.heading}
-              <em className="whitespace-nowrap text-[12.5px] font-normal not-italic text-muted-foreground">each one is an instruction</em>
-            </h3>
-            {(rj.gap_ledger || []).slice(0, 3).map((gap, i) => {
-              const [action, payoff] = gap.action_phrase.split('\u2192')
-              return (
-                <div key={i} className="mt-3 grid grid-cols-[12px_1fr] items-start gap-3.5 rounded-lg border border-border bg-card p-4">
-                  <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${gapDot(gap.tier)}`} />
-                  <div>
-                    <div className="max-w-[62ch] text-[15.5px] font-semibold">
-                      {action?.trim()} <span className="text-destructive">\u2192</span> {payoff?.trim()}
-                    </div>
-                    {gap.why_it_matters && <p className="mt-1.5 max-w-[60ch] text-sm text-muted-foreground">{gap.why_it_matters}</p>}
-                    {gap.unlocks_question && <div className="mt-1.5 text-sm text-primary">Would answer: {gap.unlocks_question}</div>}
-                    {gap.needs && <div className="mt-1.5 text-xs text-muted-foreground">Needs: {gap.needs}</div>}
-                  </div>
+          <section className="rounded-2xl border-2 border-accent/40 bg-card p-6 sm:p-7 shadow-md shadow-accent/5 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 border-b border-border pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-accent uppercase mb-1">
+                  Core Product Identity
                 </div>
-              )
-            })}
-            <div className="mt-4">
-              <Button size="lg" onClick={onImprove} className="min-h-[44px]">Improve report</Button>
+                <h2 className="font-editorial text-2xl sm:text-3xl font-semibold text-foreground">
+                  4. What You&apos;re Missing
+                </h2>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                {rj.gap_ledger?.length || 0} Gaps Tracked
+              </span>
+            </div>
+
+            <div className="space-y-3.5">
+              {(rj.gap_ledger || []).slice(0, 3).map((gap, i) => {
+                const parts = gap.action_phrase ? gap.action_phrase.split(/→|->/) : [gap.field, 'Resolve gap']
+                const action = parts[0]
+                const payoff = parts[1]
+                const isCritical = gap.tier === 'critical'
+                const isHigh = gap.tier === 'high'
+                return (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-border/80 bg-muted/20 p-5 transition-all hover:bg-muted/40 hover:border-primary/40 shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${gapDot(gap.tier)}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <Badge
+                            variant={isCritical ? 'destructive' : 'outline'}
+                            className="text-[10px] font-mono uppercase tracking-wider"
+                          >
+                            {gap.tier} TIER
+                          </Badge>
+                          <span className="text-xs font-mono text-muted-foreground">
+                            Affects {gap.conclusions_affected} conclusion{gap.conclusions_affected === 1 ? '' : 's'}
+                          </span>
+                        </div>
+
+                        <div className="text-base font-semibold text-foreground">
+                          {action?.trim()} <span className="text-primary font-bold">&rarr;</span> {payoff?.trim()}
+                        </div>
+
+                        {gap.why_it_matters && (
+                          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                            {gap.why_it_matters}
+                          </p>
+                        )}
+
+                        {gap.unlocks_question && (
+                          <div className="mt-2 text-xs font-medium text-primary">
+                            Would answer: &ldquo;{gap.unlocks_question}&rdquo;
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-border/80 pt-4">
+              <p className="text-xs text-muted-foreground">
+                Upload supplementary datasets to immediately close gaps and elevate score.
+              </p>
+              <Button
+                size="lg"
+                onClick={onImprove}
+                className="min-h-[44px] px-6 text-sm font-semibold bg-accent text-accent-foreground shadow-md shadow-accent/20 hover:opacity-95"
+              >
+                <Sparkles className="mr-2 h-4 w-4" /> Improve Report Now
+              </Button>
             </div>
           </section>
         )}
 
+        {/* Section 5: What to do next */}
         {nextSection && (
-          <section className="mt-9">
-            <h3 className="border-b border-foreground pb-1.5 text-[15px] font-semibold">{nextSection.heading}</h3>
-            <ol className="mt-3.5">
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-baseline justify-between border-b border-border pb-3">
+              <h2 className="font-editorial text-xl sm:text-2xl font-semibold text-foreground">
+                5. {nextSection.heading}
+              </h2>
+              <span className="text-xs font-mono text-muted-foreground uppercase">Operational Roadmap</span>
+            </div>
+
+            <div className="space-y-3 pt-1">
               {(nextSection.narrative ? nextSection.narrative.split(/\n+/).filter(Boolean) : []).map((line, i) => (
-                <li key={i} className="relative max-w-[64ch] border-b border-border py-2.5 pl-7 text-[15px] last:border-0">
-                  <span className="absolute left-0 top-2.5 text-[13.5px] text-muted-foreground">{i + 1}</span>
-                  {line.replace(/^\d+[\.\)]\s*/, '')}
-                </li>
+                <div key={i} className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/15 p-3.5 text-sm">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-mono font-bold text-xs">
+                    {i + 1}
+                  </span>
+                  <span className="text-foreground/90 pt-0.5 leading-relaxed">
+                    {line.replace(/^\d+[\.\)]\s*/, '')}
+                  </span>
+                </div>
               ))}
-              {!nextSection.narrative && <li className="py-2.5 text-sm text-muted-foreground">No further actions listed.</li>}
-            </ol>
+            </div>
           </section>
         )}
 
+        {/* Show Evidence Deep Inspector */}
         {showEvidence && (
-          <div className="mt-8 rounded-lg border border-dashed border-border bg-muted/30 p-4 sm:p-[17px]">
-            <h5 className="mb-2.5 text-xs font-medium text-muted-foreground">With &quot;Show evidence&quot; on, the same page adds this \u2014 nothing moves</h5>
-            {rj.sections.flatMap((s) => s.claims).map((c) => (
-              <div key={c.id} className="border-b border-border py-1.5 text-[13.5px] text-muted-foreground last:border-0">
-                <b className="text-foreground">{c.text}</b> \u00b7 {c.class} \u00b7 {c.basis}
+          <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-card p-6 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-semibold text-sm text-foreground">Underlying Evidence Ledger</h3>
+                <p className="text-xs text-muted-foreground">Every claim, mathematical basis, and cross-file reconciliation.</p>
               </div>
-            ))}
-            {compatibility.map((c, i) => (
-              <div key={i} className="border-b border-border py-1.5 text-[13.5px] text-muted-foreground last:border-0">
-                <b className="text-foreground">Compatibility</b> \u00b7 {c.pair.join(' vs ')} \u00b7 {c.verdict}{c.reconciliation ? ` \u00b7 ${c.reconciliation}` : ''}
-              </div>
-            ))}
-            {!isSample && resolutions.filter((r) => r.applied_in_version != null).map((r) => (
-              <div key={r.id} className="border-b border-border py-1.5 text-[13.5px] text-muted-foreground last:border-0">
-                <b className="text-foreground">Settled</b> \u00b7 {r.action} \u00b7 applied in v{r.applied_in_version}
-              </div>
-            ))}
-            <button onClick={() => setHistoryOpen(true)} className="mt-2.5 flex items-center gap-1.5 text-[13px] text-primary hover:underline">
-              <History className="h-3.5 w-3.5" /> View version history
-            </button>
+              <Badge variant="outline" className="font-mono text-xs text-primary">
+                PROVENANCE ACTIVE
+              </Badge>
+            </div>
+
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+              {rj.sections.flatMap((s) => s.claims).map((c) => (
+                <div key={c.id} className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-semibold text-foreground">{c.text}</span>
+                    <Badge variant="secondary" className="text-[10px] font-mono uppercase">{c.class}</Badge>
+                  </div>
+                  <div className="text-muted-foreground font-mono">Basis: {c.basis}</div>
+                </div>
+              ))}
+
+              {compatibility.map((c, i) => (
+                <div key={i} className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
+                  <div className="font-semibold text-foreground">Compatibility: {c.pair.join(' vs ')} ({c.axis})</div>
+                  <div className="text-muted-foreground">{c.verdict} {c.reconciliation ? `· ${c.reconciliation}` : ''}</div>
+                </div>
+              ))}
+
+              {!isSample && resolutions.filter((r) => r.applied_in_version != null).map((r) => (
+                <div key={r.id} className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
+                  <div className="font-semibold text-foreground">Settled Resolution: {r.action}</div>
+                  <div className="text-muted-foreground font-mono">Applied in version {r.applied_in_version}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+                <History className="mr-1.5 h-3.5 w-3.5" /> Full Version History
+              </Button>
+            </div>
           </div>
         )}
       </div>

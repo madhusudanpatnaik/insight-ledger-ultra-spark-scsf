@@ -46,3 +46,4 @@ CLAUDE.md
 available_models_for_agent.json
 # Architect harness state: resume checkpoint + scratch files (platform, not app content)
 /.harness/
+.playwright-mcp/
