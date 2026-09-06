@@ -295,7 +295,7 @@ export default function CreateScreen({ authFetch, activeAgentId, setActiveAgentI
               <span className="min-w-0 flex-1 truncate font-medium text-foreground">{p.name}</span>
               <span className="hidden truncate text-xs text-muted-foreground sm:block">{p.detail}</span>
               <span className="ml-auto shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground">data</span>
-              <button onClick={() => removeProfile(p.name)} aria-label={`Remove ${p.name}`} className="ml-1 shrink-0 rounded p-1 text-muted-foreground hover:bg-muted">
+              <button onClick={() => removeProfile(p.name)} aria-label={`Remove ${p.name}`} className="ml-1 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -307,7 +307,7 @@ export default function CreateScreen({ authFetch, activeAgentId, setActiveAgentI
               <span className="min-w-0 flex-1 truncate font-medium text-foreground">{templateProfile.name}</span>
               <span className="hidden truncate text-xs text-muted-foreground sm:block">{templateProfile.detail}</span>
               <span className="ml-auto shrink-0 rounded border border-[color:var(--primary)]/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">template</span>
-              <button onClick={() => setTemplateProfile(null)} aria-label="Remove template" className="ml-1 shrink-0 rounded p-1 text-muted-foreground hover:bg-muted">
+              <button onClick={() => setTemplateProfile(null)} aria-label="Remove template" className="ml-1 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>

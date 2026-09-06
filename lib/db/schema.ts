@@ -81,6 +81,7 @@ export const extracted_facts = pgTable(
   "extracted_facts",
   {
     id: text("id").primaryKey().$defaultFn(() => generateId()),
+    owner_user_id: ownerUserId(),
     dataset_id: text("dataset_id").notNull(),
     label: text("label").notNull(),
     value_text: text("value_text").notNull(),
@@ -90,7 +91,7 @@ export const extracted_facts = pgTable(
     conflicts_with: text("conflicts_with"),
     ...timestamps,
   },
-  (t) => [index("extracted_facts_dataset_idx").on(t.dataset_id)]
+  (t) => [index("extracted_facts_dataset_idx").on(t.dataset_id), index("extracted_facts_owner_idx").on(t.owner_user_id)]
 );
 
 // Cross-file grain/unit/period/definition verdicts.
@@ -98,6 +99,7 @@ export const compatibility_checks = pgTable(
   "compatibility_checks",
   {
     id: text("id").primaryKey().$defaultFn(() => generateId()),
+    owner_user_id: ownerUserId(),
     report_id: text("report_id").notNull(),
     dataset_a_id: text("dataset_a_id"),
     dataset_b_id: text("dataset_b_id"),
@@ -107,7 +109,7 @@ export const compatibility_checks = pgTable(
     resolved: boolean("resolved").notNull().default(false),
     ...timestamps,
   },
-  (t) => [index("compatibility_checks_report_idx").on(t.report_id)]
+  (t) => [index("compatibility_checks_report_idx").on(t.report_id), index("compatibility_checks_owner_idx").on(t.owner_user_id)]
 );
 
 // User decisions, batched until applied.
@@ -115,6 +117,7 @@ export const resolutions = pgTable(
   "resolutions",
   {
     id: text("id").primaryKey().$defaultFn(() => generateId()),
+    owner_user_id: ownerUserId(),
     report_id: text("report_id").notNull(),
     target_type: text("target_type").notNull(), // conflict | gap | fact | compatibility
     target_id: text("target_id"),
@@ -126,7 +129,7 @@ export const resolutions = pgTable(
     applied_in_version: integer("applied_in_version"),
     ...timestamps,
   },
-  (t) => [index("resolutions_report_idx").on(t.report_id)]
+  (t) => [index("resolutions_report_idx").on(t.report_id), index("resolutions_owner_idx").on(t.owner_user_id)]
 );
 
 // Gap ledger — surfaced as "what you're missing".
@@ -134,6 +137,7 @@ export const evidence_gaps = pgTable(
   "evidence_gaps",
   {
     id: text("id").primaryKey().$defaultFn(() => generateId()),
+    owner_user_id: ownerUserId(),
     report_id: text("report_id").notNull(),
     field_name: text("field_name").notNull(),
     plain_label: text("plain_label").notNull(),
@@ -148,7 +152,7 @@ export const evidence_gaps = pgTable(
     resolved: boolean("resolved").notNull().default(false),
     ...timestamps,
   },
-  (t) => [index("evidence_gaps_report_idx").on(t.report_id)]
+  (t) => [index("evidence_gaps_report_idx").on(t.report_id), index("evidence_gaps_owner_idx").on(t.owner_user_id)]
 );
 
 // Follow-up Q&A thread per report.
@@ -156,12 +160,13 @@ export const report_messages = pgTable(
   "report_messages",
   {
     id: text("id").primaryKey().$defaultFn(() => generateId()),
+    owner_user_id: ownerUserId(),
     report_id: text("report_id").notNull(),
     sender: text("sender").notNull(), // user | agent
     content: text("content").notNull(),
     ...timestamps,
   },
-  (t) => [index("report_messages_report_idx").on(t.report_id)]
+  (t) => [index("report_messages_report_idx").on(t.report_id), index("report_messages_owner_idx").on(t.owner_user_id)]
 );
 
 // Record of every send.
@@ -169,6 +174,7 @@ export const deliveries = pgTable(
   "deliveries",
   {
     id: text("id").primaryKey().$defaultFn(() => generateId()),
+    owner_user_id: ownerUserId(),
     report_id: text("report_id").notNull(),
     report_version: integer("report_version").notNull().default(1),
     channel: text("channel").notNull(), // email | slack
@@ -180,5 +186,5 @@ export const deliveries = pgTable(
     sent_at: text("sent_at"),
     ...timestamps,
   },
-  (t) => [index("deliveries_report_idx").on(t.report_id)]
+  (t) => [index("deliveries_report_idx").on(t.report_id), index("deliveries_owner_idx").on(t.owner_user_id)]
 );

@@ -85,7 +85,7 @@ export default async function RootLayout({
   const hideWatermark = isPaidUser || await fetchHideWatermark()
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="font-sans" suppressHydrationWarning>
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_INIT }} />
         <IframeLoggerInit />
         <SSOGuard>
